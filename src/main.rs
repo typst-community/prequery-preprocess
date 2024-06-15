@@ -1,3 +1,5 @@
+use typst_preprocess::greet;
+
 fn main() {
-    println!("Hello, world!");
+    greet();
 }
