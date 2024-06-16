@@ -5,6 +5,8 @@ use std::path::{self, Path, PathBuf};
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 
+use typst_preprocess::config;
+
 use args::CliArguments;
 
 fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
@@ -36,12 +38,18 @@ fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
     Ok(p)
 }
 
+fn read_typst_toml<P: AsRef<Path>>(input: P) -> Result<config::Config> {
+    let typst_toml = resolve_typst_toml(input)?;
+    let typst_toml = std::fs::read_to_string(typst_toml)?;
+    let typst_toml = config::read_typst_toml(&typst_toml)?;
+    Ok(typst_toml)
+}
+
 fn main() -> Result<()> {
     let args = CliArguments::parse();
+    let config = read_typst_toml(&args.input)?;
 
-    let typst_toml = resolve_typst_toml(args.input)?;
-    let typst_toml = std::fs::read_to_string(typst_toml)?;
-    println!("{typst_toml}");
+    println!("{config:?}");
 
     Ok(())
 }
