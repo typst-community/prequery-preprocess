@@ -5,7 +5,8 @@ use clap::Parser;
 
 use typst_preprocess::args::CliArguments;
 use typst_preprocess::config;
-use typst_preprocess::query;
+use typst_preprocess::prequery::web_resource::WebResource;
+use typst_preprocess::prequery::Prequery;
 
 
 fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
@@ -51,9 +52,9 @@ fn main() -> Result<()> {
     println!("{args:?}");
     println!("{config:?}");
 
-    let query = query::Query::builder().build(config.jobs.first().unwrap().query.clone())?;
-    let result = query::query(&args, &query)?;
-    println!("{result}");
+    let query = config.jobs.first().unwrap().query.clone();
+    let result = WebResource.query(&args, query)?;
+    println!("{result:?}");
 
     Ok(())
 }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, Context, Result};
+use serde::Deserialize;
 
 use crate::args::CliArguments;
 use crate::config;
@@ -58,7 +59,10 @@ impl QueryBuilder {
     }
 }
 
-pub fn query(args: &CliArguments, config: &Query) -> Result<serde_json::Value> {
+pub fn query<T>(args: &CliArguments, config: &Query) -> Result<T>
+where
+    T: for<'a> Deserialize<'a>
+{
     let mut cmd = Command::new(&args.typst);
     cmd.arg("query");
     if let Some(root) = &args.root {
@@ -89,5 +93,5 @@ pub fn query(args: &CliArguments, config: &Query) -> Result<serde_json::Value> {
     }
 
     serde_json::from_slice(&output.stdout)
-        .context("query resonse was not valid JSON")
+        .context("query resonse was not valid JSON or did not fit the expected schema")
 }
