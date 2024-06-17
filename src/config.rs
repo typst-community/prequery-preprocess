@@ -7,12 +7,12 @@ use serde::{Deserialize, Deserializer};
 use serde::de::{self, Visitor};
 use toml::Table;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Config {
     pub jobs: Vec<Job>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Job {
     pub name: String,
     pub kind: String,
@@ -21,7 +21,7 @@ pub struct Job {
     pub config: Table,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Query {
     pub selector: Option<String>,
     #[serde(default, deserialize_with = "deserialize_field")]

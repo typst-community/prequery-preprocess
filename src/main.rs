@@ -1,13 +1,12 @@
-mod args;
-
 use std::path::{self, Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 
+use typst_preprocess::args::CliArguments;
 use typst_preprocess::config;
+use typst_preprocess::query;
 
-use args::CliArguments;
 
 fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
     const TYPST_TOML: &str = "typst.toml";
@@ -49,7 +48,12 @@ fn main() -> Result<()> {
     let args = CliArguments::parse();
     let config = read_typst_toml(&args.input)?;
 
+    println!("{args:?}");
     println!("{config:?}");
+
+    let query = query::Query::builder().build(config.jobs.first().unwrap().query.clone())?;
+    let result = query::query(&args, &query)?;
+    println!("{result}");
 
     Ok(())
 }

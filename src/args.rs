@@ -6,7 +6,11 @@ use clap::Parser;
 #[derive(Debug, Clone, Parser)]
 pub struct CliArguments {
     /// Configures the project root (for absolute paths)
-    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
+    #[clap(long, value_name = "EXE", default_value = "typst")]
+    pub typst: PathBuf,
+
+    /// Configures the project root (for absolute paths)
+    #[clap(long = "root", value_name = "DIR", env = "TYPST_ROOT")]
     pub root: Option<PathBuf>,
 
     /// Path to input Typst file. `prequery-preprocess` will look for a `typst.toml` file in
