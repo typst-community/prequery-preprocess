@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, Context, Result};
 
 use crate::args::CliArguments;
 use crate::config;
@@ -58,7 +58,7 @@ impl QueryBuilder {
     }
 }
 
-pub fn query(args: &CliArguments, config: &Query) -> Result<String> {
+pub fn query(args: &CliArguments, config: &Query) -> Result<serde_json::Value> {
     let mut cmd = Command::new(&args.typst);
     cmd.arg("query");
     if let Some(root) = &args.root {
@@ -88,9 +88,6 @@ pub fn query(args: &CliArguments, config: &Query) -> Result<String> {
         return Err(anyhow!("query command failed: {status}\n\n\t{cmd:?}"));
     }
 
-    String::from_utf8(output.stdout).map_err(|err| {
-        let response = String::from_utf8_lossy(err.as_bytes());
-        let message = format!("query response was not valid UTF-8: {response}");
-        Error::new(err).context(message)
-    })
+    serde_json::from_slice(&output.stdout)
+        .context("query resonse was not valid JSON")
 }
