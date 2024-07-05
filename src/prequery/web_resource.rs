@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate::config;
 use crate::query::Query;
 
-use super::Prequery;
+use super::{Prequery, PrequeryImpl};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {}
@@ -17,7 +17,9 @@ pub struct Resource {
 
 pub struct WebResource;
 
-impl Prequery for WebResource {
+impl PrequeryImpl for WebResource {
+    const NAME: &'static str = "web-resource";
+
     type Config = Config;
     type QueryData = Vec<Resource>;
 
@@ -32,5 +34,13 @@ impl Prequery for WebResource {
         }
 
         Ok(config)
+    }
+}
+
+impl Prequery for WebResource {
+    fn execute(&self, args: &crate::args::CliArguments, config: config::Query) -> Result<()> {
+        let result = self.query(&args, config)?;
+        println!("{result:?}");
+        Ok(())
     }
 }
