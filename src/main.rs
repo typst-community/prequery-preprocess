@@ -62,9 +62,10 @@ fn main() -> Result<()> {
 
     for config::Job { name, kind, query, config } in config.jobs {
         println!("working on {name}");
-        let prequery = PREQUERIES.get(kind.as_str())
-            .with_context(|| format!("unknown job kind: {kind}"))?;
-        prequery.execute(&args, query)?;
+        let mut prequery = PREQUERIES.get(kind.as_str())
+            .with_context(|| format!("unknown job kind: {kind}"))?
+            .configure(&args, config, query)?;
+        prequery.run()?;
     }
 
     Ok(())

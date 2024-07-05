@@ -7,7 +7,7 @@ use crate::args::CliArguments;
 use crate::config;
 use crate::query::Query;
 
-use super::{Prequery, PrequeryImpl};
+use super::{Prequery, PrequeryFactory, PrequeryImpl};
 
 /// Auxilliary configuration for the prequery
 #[derive(Deserialize, Debug, Clone)]
@@ -23,15 +23,23 @@ pub struct Resource {
 }
 
 /// The `web-resource` prequery
-pub struct WebResource;
+pub struct WebResource<'a> {
+    args: &'a CliArguments,
+    _config: Config,
+    query: Query,
+}
 
-impl PrequeryImpl for WebResource {
+impl<'a> PrequeryImpl<'a> for WebResource<'a> {
     const NAME: &'static str = "web-resource";
 
     type Config = Config;
     type QueryData = Vec<Resource>;
 
-    fn build_query(&self, config: config::Query) -> Result<Query> {
+    fn factory() -> impl PrequeryFactory + Send + Sync + 'static {
+        WebResourceFactory
+    }
+
+    fn build_query(config: config::Query) -> Result<Query> {
         let config = Query::builder()
             .default_field(Some("value".to_string()))
             .default_one(false)
@@ -45,10 +53,33 @@ impl PrequeryImpl for WebResource {
     }
 }
 
-impl Prequery for WebResource {
-    fn execute(&self, args: &CliArguments, config: config::Query) -> Result<()> {
-        let result = self.query(&args, config)?;
-        println!("{result:?}");
+impl<'a> WebResource<'a> {
+    fn query(&self) -> Result<<Self as PrequeryImpl<'a>>::QueryData> {
+        self.query.query(self.args)
+    }
+}
+
+impl<'a> Prequery<'a> for WebResource<'a> {
+    fn run(&mut self) -> Result<()> {
+        let query_data = self.query()?;
+        println!("{query_data:?}");
         Ok(())
+    }
+}
+
+/// The `web-resource` prequery factory
+pub struct WebResourceFactory;
+
+impl PrequeryFactory for WebResourceFactory {
+    fn configure<'a>(
+        &self,
+        args: &'a CliArguments,
+        config: toml::Table,
+        query: config::Query,
+    ) -> Result<Box<dyn Prequery<'a> + 'a>> {
+        let _config = WebResource::parse_config(config)?;
+        let query = WebResource::build_query(query)?;
+        let instance = WebResource { args, _config, query };
+        Ok(Box::new(instance))
     }
 }
