@@ -1,13 +1,13 @@
 //! The `web-resource` preprocessor
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
 use crate::args::CliArguments;
 use crate::config;
 use crate::query::Query;
 
-use super::{Preprocessor, PreprocessorFactory, PreprocessorImpl};
+use super::{Preprocessor, PreprocessorFactory};
 
 /// Auxilliary configuration for the preprocessor
 #[derive(Deserialize, Debug, Clone)]
@@ -22,6 +22,8 @@ pub struct Resource {
     pub path: String,
 }
 
+type QueryData = Vec<Resource>;
+
 /// The `web-resource` preprocessor
 pub struct WebResource<'a> {
     args: &'a CliArguments,
@@ -29,14 +31,28 @@ pub struct WebResource<'a> {
     query: Query,
 }
 
-impl<'a> PreprocessorImpl<'a> for WebResource<'a> {
-    const NAME: &'static str = "web-resource";
+impl WebResource<'_> {
+    fn query(&self) -> Result<QueryData> {
+        self.query.query(self.args)
+    }
+}
 
-    type Config = Config;
-    type QueryData = Vec<Resource>;
+impl Preprocessor for WebResource<'_> {
+    fn run(&mut self) -> Result<()> {
+        let query_data = self.query()?;
+        println!("{query_data:?}");
+        Ok(())
+    }
+}
 
-    fn factory() -> impl PreprocessorFactory + Send + Sync + 'static {
-        WebResourceFactory
+/// The `web-resource` preprocessor factory
+pub struct WebResourceFactory;
+
+impl WebResourceFactory {
+    fn parse_config(config: toml::Table) -> Result<Config> {
+        let config = config.try_into()
+            .context("invalid web-resource configuration")?;
+        Ok(config)
     }
 
     fn build_query(config: config::Query) -> Result<Query> {
@@ -53,32 +69,19 @@ impl<'a> PreprocessorImpl<'a> for WebResource<'a> {
     }
 }
 
-impl<'a> WebResource<'a> {
-    fn query(&self) -> Result<<Self as PreprocessorImpl<'a>>::QueryData> {
-        self.query.query(self.args)
-    }
-}
-
-impl<'a> Preprocessor<'a> for WebResource<'a> {
-    fn run(&mut self) -> Result<()> {
-        let query_data = self.query()?;
-        println!("{query_data:?}");
-        Ok(())
-    }
-}
-
-/// The `web-resource` preprocessor factory
-pub struct WebResourceFactory;
-
 impl PreprocessorFactory for WebResourceFactory {
+    fn name(&self) -> &'static str {
+        "web-resource"
+    }
+
     fn configure<'a>(
         &self,
         args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
-    ) -> Result<Box<dyn Preprocessor<'a> + 'a>> {
-        let _config = WebResource::parse_config(config)?;
-        let query = WebResource::build_query(query)?;
+    ) -> Result<Box<dyn Preprocessor + 'a>> {
+        let _config = Self::parse_config(config)?;
+        let query = Self::build_query(query)?;
         let instance = WebResource { args, _config, query };
         Ok(Box::new(instance))
     }
