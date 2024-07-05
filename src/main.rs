@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+//! A tool for processing [prequery](https://typst.app/universe/package/prequery) data in Typst documents.
+
 use std::path::{self, Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
@@ -8,6 +11,9 @@ use typst_preprocess::config;
 use typst_preprocess::prequery::PREQUERIES;
 
 
+/// Returns the path of the `typst.toml` file that is closest to the specified input file. The input
+/// path should be an actual file (the main `.typ` file that will be queried by the preprocessor);
+/// if it is a directory, that directory itself would not be searched!
 fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
     const TYPST_TOML: &str = "typst.toml";
 
@@ -37,6 +43,7 @@ fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
     Ok(p)
 }
 
+/// Resolves and reads the `typst.toml` file relevant for the given input file.
 fn read_typst_toml<P: AsRef<Path>>(input: P) -> Result<config::Config> {
     let typst_toml = resolve_typst_toml(input)?;
     let typst_toml = std::fs::read_to_string(typst_toml)?;
@@ -44,6 +51,8 @@ fn read_typst_toml<P: AsRef<Path>>(input: P) -> Result<config::Config> {
     Ok(typst_toml)
 }
 
+/// Entry point; reads the command line arguments, determines the input files and jobs to run, and
+/// then executes the jobs.
 fn main() -> Result<()> {
     let args = CliArguments::parse();
     let config = read_typst_toml(&args.input)?;

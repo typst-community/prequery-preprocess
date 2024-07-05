@@ -1,3 +1,5 @@
+//! Executing `typst query` commands
+
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
@@ -7,43 +9,64 @@ use serde::Deserialize;
 use crate::args::CliArguments;
 use crate::config;
 
+/// A query that can be run against a Typst document. This is usually configured from a
+/// [config::Query] using a [QueryBuilder].
 #[derive(Debug, Clone)]
 pub struct Query {
+    /// The selector to be queried, e.g. `<label>`
     pub selector: String,
+    /// The field (`--field`) to be queried from the selector (with metadata elements, this is
+    /// usually `value`)
     pub field: Option<String>,
+    /// Whether only one (`--one`) query result is expected and should be returned
     pub one: bool,
+    /// Any additional inputs (`--input`) to be given to the queried document. Regardless of these
+    /// settings, `prequery-fallback` is always set to `true` during queries.
     pub inputs: HashMap<String, String>,
 }
 
 impl Query {
+    /// Creates a query builder
     pub fn builder() -> QueryBuilder {
         QueryBuilder::default()
     }
 }
 
+/// A query builder. Default values for the various configs can be set. If a setting is missing from
+/// the [config::Query], that default will be used.
 #[derive(Debug, Clone, Default)]
 pub struct QueryBuilder {
+    /// The selector to be queried, e.g. `<label>`
     pub selector: Option<String>,
+    /// The field (`--field`) to be queried from the selector (with metadata elements, this is
+    /// usually `value`)
     pub field: Option<Option<String>>,
+    /// Whether only one (`--one`) query result is expected and should be returned
     pub one: Option<bool>,
 }
 
 impl QueryBuilder {
+    /// Set the selector to be queried, e.g. `<label>`
     pub fn default_selector(mut self, selector: String) -> Self {
         self.selector = Some(selector);
         self
     }
 
+    /// Set the field (`--field`) to be queried from the selector (with metadata elements, this is
+    /// usually `value`)
     pub fn default_field(mut self, field: Option<String>) -> Self {
         self.field = Some(field);
         self
     }
 
+    /// Set whether only one (`--one`) query result is expected and should be returned
     pub fn default_one(mut self, one: bool) -> Self {
         self.one = Some(one);
         self
     }
 
+    /// build a [Query] using the given defaults. If the [config::Query] doesn't contain a field
+    /// that also doesn't have a default value, this will fail.
     pub fn build(self, config: config::Query) -> Result<Query> {
         let selector = config.selector
             .or(self.selector)
@@ -59,6 +82,8 @@ impl QueryBuilder {
     }
 }
 
+/// Executes the given query. This builds the necessary `typst query`` command line, runs the
+/// command, and returns the result parsed into the desired type from JSON.
 pub fn query<T>(args: &CliArguments, config: &Query) -> Result<T>
 where
     T: for<'a> Deserialize<'a>

@@ -1,3 +1,5 @@
+//! CLI argument parsing types
+
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -5,7 +7,7 @@ use clap::Parser;
 /// prequery-preprocess args
 #[derive(Debug, Clone, Parser)]
 pub struct CliArguments {
-    /// Configures the project root (for absolute paths)
+    /// Configures the types executable to use
     #[clap(long, value_name = "EXE", default_value = "typst")]
     pub typst: PathBuf,
 

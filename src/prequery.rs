@@ -1,3 +1,5 @@
+//! The actual prequeries and management of those
+
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
@@ -11,14 +13,21 @@ use crate::query;
 
 pub mod web_resource;
 
+/// Implementation part of a prequery
 pub trait PrequeryImpl {
+    /// The identifier of the prequery, referenced by the [config::Job::kind] field
     const NAME: &'static str;
 
+    /// The type of configuration data stored in the [config::Job::config] field
     type Config: for<'a> Deserialize<'a>;
+    /// The data returned when querying the document for this prequery
     type QueryData: for<'a> Deserialize<'a>;
 
+    /// Build the query, usually using a [query::QueryBuilder] and optionally doing validation
+    /// afterwards
     fn build_query(&self, config: config::Query) -> Result<query::Query>;
 
+    /// Executes the query defined by [PrequeryImpl::build_query()]
     fn query(&self, args: &CliArguments, config: config::Query) -> Result<Self::QueryData> {
         let config = self.build_query(config)?;
         let data = query::query(args, &config)?;
@@ -26,11 +35,15 @@ pub trait PrequeryImpl {
     }
 }
 
+/// Outward-facing part of a prequery: this trait is object safe and simply allows executing the
+/// prequery.
 pub trait Prequery {
+    /// Runs the prequery
     fn execute(&self, args: &CliArguments, config: config::Query) -> Result<()>;
 }
 
 type PrequeryMap = HashMap<&'static str, Box<dyn Prequery + Send + Sync>>;
+/// Map of prequeries defined and known to this crate
 pub static PREQUERIES: Lazy<PrequeryMap> = Lazy::new(|| {
     fn register<T: Prequery + PrequeryImpl + Send + Sync + 'static>(
         map: &mut PrequeryMap,

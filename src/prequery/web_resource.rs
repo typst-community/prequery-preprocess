@@ -1,3 +1,5 @@
+//! The `web-resource` prequery
+
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
 
@@ -6,15 +8,20 @@ use crate::query::Query;
 
 use super::{Prequery, PrequeryImpl};
 
+/// Auxilliary configuration for the prequery
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {}
 
+/// A resource that should be downloaded
 #[derive(Deserialize, Debug, Clone)]
 pub struct Resource {
+    /// The URL to download from
     pub url: String,
+    /// The path to download to. Must be in the document's root.
     pub path: String,
 }
 
+/// The `web-resource` prequery
 pub struct WebResource;
 
 impl PrequeryImpl for WebResource {
