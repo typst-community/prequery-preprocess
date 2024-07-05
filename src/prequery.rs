@@ -29,8 +29,7 @@ pub trait PrequeryImpl {
 
     /// Executes the query defined by [PrequeryImpl::build_query()]
     fn query(&self, args: &CliArguments, config: config::Query) -> Result<Self::QueryData> {
-        let config = self.build_query(config)?;
-        let data = query::query(args, &config)?;
+        let data = self.build_query(config)?.query(args)?;
         Ok(data)
     }
 }

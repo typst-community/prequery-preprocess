@@ -1,6 +1,7 @@
 //! Executing `typst query` commands
 
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, Context, Result};
@@ -29,6 +30,49 @@ impl Query {
     /// Creates a query builder
     pub fn builder() -> QueryBuilder {
         QueryBuilder::default()
+    }
+
+    /// Builds the `typst query` command line for executing this command.
+    pub fn command(&self, args: &CliArguments) -> Command {
+        let mut cmd = Command::new(&args.typst);
+        cmd.arg("query");
+        if let Some(root) = &args.root {
+            cmd.arg("--root").arg(root);
+        }
+        if let Some(field) = &self.field {
+            cmd.arg("--field").arg(field);
+        }
+        if self.one {
+            cmd.arg("--one");
+        }
+        let mut input = String::new();
+        for (key, value) in &self.inputs {
+            input.clear();
+            write!(&mut input, "{key}={value}").expect("writing to a string failed");
+            cmd.arg("--input").arg(&input);
+        }
+        cmd.arg("--input").arg("prequery-fallback=true");
+        cmd.arg(&args.input).arg(&self.selector);
+
+        cmd
+    }
+
+    /// Executes the query. This builds the necessary command line, runs the command, and returns
+    /// the result parsed into the desired type from JSON.
+    pub fn query<T>(&self, args: &CliArguments) -> Result<T>
+    where
+        T: for<'a> Deserialize<'a>
+    {
+        let mut cmd = self.command(args);
+        cmd.stderr(Stdio::inherit());
+        let output = cmd.output()?;
+        if !output.status.success() {
+            let status = output.status;
+            return Err(anyhow!("query command failed: {status}\n\n\t{cmd:?}"));
+        }
+
+        serde_json::from_slice(&output.stdout)
+            .context("query resonse was not valid JSON or did not fit the expected schema")
     }
 }
 
@@ -80,43 +124,4 @@ impl QueryBuilder {
         let inputs = config.inputs;
         Ok(Query { selector, field, one, inputs })
     }
-}
-
-/// Executes the given query. This builds the necessary `typst query`` command line, runs the
-/// command, and returns the result parsed into the desired type from JSON.
-pub fn query<T>(args: &CliArguments, config: &Query) -> Result<T>
-where
-    T: for<'a> Deserialize<'a>
-{
-    let mut cmd = Command::new(&args.typst);
-    cmd.arg("query");
-    if let Some(root) = &args.root {
-        cmd.arg("--root").arg(root);
-    }
-    if let Some(field) = &config.field {
-        cmd.arg("--field").arg(field);
-    }
-    if config.one {
-        cmd.arg("--one");
-    }
-    let mut input = String::new();
-    for (key, value) in &config.inputs {
-        input.clear();
-        input.push_str(key);
-        input.push_str("=");
-        input.push_str(value);
-        cmd.arg("--input").arg(&input);
-    }
-    cmd.arg("--input").arg("prequery-fallback=true");
-    cmd.arg(&args.input).arg(&config.selector);
-
-    cmd.stderr(Stdio::inherit());
-    let output = cmd.output()?;
-    if !output.status.success() {
-        let status = output.status;
-        return Err(anyhow!("query command failed: {status}\n\n\t{cmd:?}"));
-    }
-
-    serde_json::from_slice(&output.stdout)
-        .context("query resonse was not valid JSON or did not fit the expected schema")
 }
