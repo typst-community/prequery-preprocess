@@ -8,7 +8,7 @@ use clap::Parser;
 
 use typst_preprocess::args::CliArguments;
 use typst_preprocess::config;
-use typst_preprocess::prequery::PREQUERIES;
+use typst_preprocess::preprocessor::PREPROCESSORS;
 
 
 /// Returns the path of the `typst.toml` file that is closest to the specified input file. The input
@@ -62,10 +62,10 @@ fn main() -> Result<()> {
 
     for config::Job { name, kind, query, config } in config.jobs {
         println!("working on {name}");
-        let mut prequery = PREQUERIES.get(kind.as_str())
+        let mut preprocessor = PREPROCESSORS.get(kind.as_str())
             .with_context(|| format!("unknown job kind: {kind}"))?
             .configure(&args, config, query)?;
-        prequery.run()?;
+        preprocessor.run()?;
     }
 
     Ok(())

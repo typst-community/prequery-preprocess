@@ -13,11 +13,11 @@ use toml::Table;
 /// that section will be defined as multiple `[[tool.prequery.jobs]]` entries.
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    /// The prequery jobs to execute
+    /// The preprocessing jobs to execute
     pub jobs: Vec<Job>,
 }
 
-/// A single prequery job. A job normally consists of executing the configured query and then
+/// A single preprocessing job. A job normally consists of executing the configured query and then
 /// processing the result in some way, usually writing to files in the project root.
 #[derive(Deserialize, Debug, Clone)]
 pub struct Job {
@@ -32,7 +32,8 @@ pub struct Job {
     pub config: Table,
 }
 
-/// Query configuration. All fields here are optional, as prequeries can define their own defaults.
+/// Query configuration. All fields here are optional, as preprocessors can define their own
+/// defaults.
 #[derive(Deserialize, Debug, Clone)]
 pub struct Query {
     /// The selector to be queried, e.g. `<label>`
@@ -60,7 +61,7 @@ pub fn read_typst_toml(content: &str) -> Result<Config> {
         .remove("prequery")
         .context("typst.toml does not contain `tool.prequery` section")?
         .try_into::<Config>()
-        .context("typst.toml contains `tool.prequery` key, but it's not a valid prequery configuration")?;
+        .context("typst.toml contains `tool.prequery` key, but it's not a valid preprocessor configuration")?;
     Ok(config)
 }
 

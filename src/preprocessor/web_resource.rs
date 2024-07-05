@@ -1,4 +1,4 @@
-//! The `web-resource` prequery
+//! The `web-resource` preprocessor
 
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
@@ -7,9 +7,9 @@ use crate::args::CliArguments;
 use crate::config;
 use crate::query::Query;
 
-use super::{Prequery, PrequeryFactory, PrequeryImpl};
+use super::{Preprocessor, PreprocessorFactory, PreprocessorImpl};
 
-/// Auxilliary configuration for the prequery
+/// Auxilliary configuration for the preprocessor
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {}
 
@@ -22,20 +22,20 @@ pub struct Resource {
     pub path: String,
 }
 
-/// The `web-resource` prequery
+/// The `web-resource` preprocessor
 pub struct WebResource<'a> {
     args: &'a CliArguments,
     _config: Config,
     query: Query,
 }
 
-impl<'a> PrequeryImpl<'a> for WebResource<'a> {
+impl<'a> PreprocessorImpl<'a> for WebResource<'a> {
     const NAME: &'static str = "web-resource";
 
     type Config = Config;
     type QueryData = Vec<Resource>;
 
-    fn factory() -> impl PrequeryFactory + Send + Sync + 'static {
+    fn factory() -> impl PreprocessorFactory + Send + Sync + 'static {
         WebResourceFactory
     }
 
@@ -54,12 +54,12 @@ impl<'a> PrequeryImpl<'a> for WebResource<'a> {
 }
 
 impl<'a> WebResource<'a> {
-    fn query(&self) -> Result<<Self as PrequeryImpl<'a>>::QueryData> {
+    fn query(&self) -> Result<<Self as PreprocessorImpl<'a>>::QueryData> {
         self.query.query(self.args)
     }
 }
 
-impl<'a> Prequery<'a> for WebResource<'a> {
+impl<'a> Preprocessor<'a> for WebResource<'a> {
     fn run(&mut self) -> Result<()> {
         let query_data = self.query()?;
         println!("{query_data:?}");
@@ -67,16 +67,16 @@ impl<'a> Prequery<'a> for WebResource<'a> {
     }
 }
 
-/// The `web-resource` prequery factory
+/// The `web-resource` preprocessor factory
 pub struct WebResourceFactory;
 
-impl PrequeryFactory for WebResourceFactory {
+impl PreprocessorFactory for WebResourceFactory {
     fn configure<'a>(
         &self,
         args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
-    ) -> Result<Box<dyn Prequery<'a> + 'a>> {
+    ) -> Result<Box<dyn Preprocessor<'a> + 'a>> {
         let _config = WebResource::parse_config(config)?;
         let query = WebResource::build_query(query)?;
         let instance = WebResource { args, _config, query };
