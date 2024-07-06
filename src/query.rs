@@ -2,10 +2,11 @@
 
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
+use tokio::process::Command;
 
 use crate::args::CliArguments;
 use crate::config;
@@ -59,13 +60,13 @@ impl Query {
 
     /// Executes the query. This builds the necessary command line, runs the command, and returns
     /// the result parsed into the desired type from JSON.
-    pub fn query<T>(&self, args: &CliArguments) -> Result<T>
+    pub async fn query<T>(&self, args: &CliArguments) -> Result<T>
     where
         T: for<'a> Deserialize<'a>
     {
         let mut cmd = self.command(args);
         cmd.stderr(Stdio::inherit());
-        let output = cmd.output()?;
+        let output = cmd.output().await?;
         if !output.status.success() {
             let status = output.status;
             return Err(anyhow!("query command failed: {status}\n\n\t{cmd:?}"));

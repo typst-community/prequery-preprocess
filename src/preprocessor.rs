@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use async_trait::async_trait;
 use once_cell::sync::Lazy;
 
 use crate::args::CliArguments;
@@ -11,9 +12,10 @@ use crate::config;
 pub mod web_resource;
 
 /// A configured preprocessor that can be executed for its side effect
+#[async_trait]
 pub trait Preprocessor {
     /// Executes this preprocessor
-    fn run(&mut self) -> Result<()>;
+    async fn run(&mut self) -> Result<()>;
 }
 
 /// A dynamically dispatched, boxed preprocessor

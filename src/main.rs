@@ -5,6 +5,7 @@ use std::path::{self, Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use tokio::fs;
 
 use typst_preprocess::args::CliArguments;
 use typst_preprocess::config;
@@ -14,7 +15,7 @@ use typst_preprocess::preprocessor::PREPROCESSORS;
 /// Returns the path of the `typst.toml` file that is closest to the specified input file. The input
 /// path should be an actual file (the main `.typ` file that will be queried by the preprocessor);
 /// if it is a directory, that directory itself would not be searched!
-fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
+async fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
     const TYPST_TOML: &str = "typst.toml";
 
     let input = path::absolute(&input)
@@ -26,7 +27,8 @@ fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
 
     // the input path needs to refer to a file. refer to typst.toml instead
     p.set_file_name(TYPST_TOML);
-    while !p.is_file() {
+    // repeat as long as the path does not point to an accessible regular file
+    while !fs::metadata(&p).await.map_or(false, |m| m.is_file()) {
         // remove the file name
         let result = p.pop();
         assert!(result, "the path should have had a final component of `{TYPST_TOML}`");
@@ -44,18 +46,19 @@ fn resolve_typst_toml<P: AsRef<Path>>(input: P) -> Result<PathBuf> {
 }
 
 /// Resolves and reads the `typst.toml` file relevant for the given input file.
-fn read_typst_toml<P: AsRef<Path>>(input: P) -> Result<config::Config> {
-    let typst_toml = resolve_typst_toml(input)?;
-    let typst_toml = std::fs::read_to_string(typst_toml)?;
+async fn read_typst_toml<P: AsRef<Path>>(input: P) -> Result<config::Config> {
+    let typst_toml = resolve_typst_toml(input).await?;
+    let typst_toml = fs::read_to_string(typst_toml).await?;
     let typst_toml = config::read_typst_toml(&typst_toml)?;
     Ok(typst_toml)
 }
 
 /// Entry point; reads the command line arguments, determines the input files and jobs to run, and
 /// then executes the jobs.
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let args = CliArguments::parse();
-    let config = read_typst_toml(&args.input)?;
+    let config = read_typst_toml(&args.input).await?;
 
     println!("{args:?}");
     println!("{config:?}");
@@ -65,7 +68,7 @@ fn main() -> Result<()> {
         let mut preprocessor = PREPROCESSORS.get(kind.as_str())
             .with_context(|| format!("unknown job kind: {kind}"))?
             .configure(&args, config, query)?;
-        preprocessor.run()?;
+        preprocessor.run().await?;
     }
 
     Ok(())

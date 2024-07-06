@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
+use async_trait::async_trait;
 use serde::Deserialize;
 
 use crate::args::CliArguments;
@@ -34,14 +35,15 @@ pub struct WebResource<'a> {
 }
 
 impl WebResource<'_> {
-    fn query(&self) -> Result<QueryData> {
-        self.query.query(self.args)
+    async fn query(&self) -> Result<QueryData> {
+        self.query.query(self.args).await
     }
 }
 
+#[async_trait]
 impl Preprocessor for WebResource<'_> {
-    fn run(&mut self) -> Result<()> {
-        let query_data = self.query()?;
+    async fn run(&mut self) -> Result<()> {
+        let query_data = self.query().await?;
         for Resource { url, path } in query_data {
             let path = self.args.resolve(&path)
                 .with_context(|| {
