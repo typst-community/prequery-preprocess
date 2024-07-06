@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 
@@ -76,3 +76,17 @@ pub static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
     register::<web_resource::WebResourceFactory>(&mut map);
     map
 });
+
+/// looks up the preprocessor according to [config::Job::kind] and returns the name and result of
+/// creating the preprocessor. The creation may fail if the kind is not recognized, or some part of
+/// the configuration was not valid for that kind.
+pub fn get_preprocessor<'a>(args: &'a CliArguments, job: config::Job) -> (String, Result<BoxedPreprocessor<'a>>) {
+    let config::Job { name, kind, query, config } = job;
+    let inner = || {
+        let preprocessor = PREPROCESSORS.get(kind.as_str())
+            .with_context(|| format!("unknown job kind: {kind}"))?
+            .configure(&args, config, query)?;
+        Ok(preprocessor)
+    };
+    (name, inner())
+}
