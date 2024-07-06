@@ -20,11 +20,10 @@ pub trait Preprocessor {
 /// A dynamically dispatched, boxed preprocessor
 pub type BoxedPreprocessor<'a> = Box<dyn Preprocessor + 'a>;
 
-/// A factory for creating [Preprocessor]s
+/// A factory for creating [Preprocessor]s. This trait has a blanket implementation for functions
+/// with the signature of [PreprocessorDefinition::configure] and does not usually need to be
+/// implemented manually.
 pub trait PreprocessorFactory {
-    /// The identifier of the preprocessor, referenced by the [config::Job::kind] field
-    fn name(&self) -> &'static str;
-
     /// Creates the preprocessor. The configuration is checked for validity, but no processing is
     /// done yet.
     fn configure<'a>(
@@ -35,22 +34,45 @@ pub trait PreprocessorFactory {
     ) -> Result<BoxedPreprocessor<'a>>;
 }
 
-/// A dynamically dispatched, boxed preprocessor factory
-pub type BoxedPreprocessorFactory = Box<dyn PreprocessorFactory + Send + Sync>;
+impl<T> PreprocessorFactory for T
+where
+    T: Send + Sync,
+    T: for<'a> Fn(&'a CliArguments, toml::Table, config::Query) -> Result<BoxedPreprocessor<'a>>
+{
+    fn configure<'a>(
+        &self,
+        args: &'a CliArguments,
+        config: toml::Table,
+        query: config::Query,
+    ) -> Result<BoxedPreprocessor<'a>> {
+        self(args, config, query)
+    }
+}
 
-type PreprocessorMap = HashMap<&'static str, BoxedPreprocessorFactory>;
+/// A preprocessor definition that can be put into the [PREPROCESSORS] map.
+pub trait PreprocessorDefinition {
+    /// The identifier of the preprocessor, referenced by the [config::Job::kind] field
+    const NAME: &'static str;
 
-/// Map of preprocessor factories defined in and known to this crate
+    /// Creates the preprocessor. The configuration is checked for validity, but no processing is
+    /// done yet.
+    fn configure<'a>(
+        args: &'a CliArguments,
+        config: toml::Table,
+        query: config::Query,
+    ) -> Result<BoxedPreprocessor<'a>>;
+}
+
+type PreprocessorMap = HashMap<&'static str, &'static (dyn PreprocessorFactory + Send + Sync)>;
+
+/// Map of preprocessors defined in this crate
 pub static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
-    fn register<T>(map: &mut PreprocessorMap, factory: T)
-    where
-        T: PreprocessorFactory + Send + Sync + 'static
-    {
-        map.insert(factory.name(), Box::new(factory));
+    fn register<T: PreprocessorDefinition + 'static>(map: &mut PreprocessorMap) {
+        map.insert(T::NAME, &T::configure);
     }
 
     let mut map = HashMap::new();
-    register(&mut map, web_resource::WebResourceFactory);
+    register::<web_resource::WebResourceFactory>(&mut map);
     map
 });
 
