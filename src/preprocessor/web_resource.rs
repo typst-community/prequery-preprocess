@@ -1,5 +1,7 @@
 //! The `web-resource` preprocessor
 
+use std::path::PathBuf;
+
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
@@ -19,7 +21,7 @@ pub struct Resource {
     /// The URL to download from
     pub url: String,
     /// The path to download to. Must be in the document's root.
-    pub path: String,
+    pub path: PathBuf,
 }
 
 type QueryData = Vec<Resource>;
@@ -40,7 +42,16 @@ impl WebResource<'_> {
 impl Preprocessor for WebResource<'_> {
     fn run(&mut self) -> Result<()> {
         let query_data = self.query()?;
-        println!("{query_data:?}");
+        for Resource { url, path } in query_data {
+            let path = self.args.resolve(&path)
+                .with_context(|| {
+                    let path_str = path.to_string_lossy();
+                    format!("cannot download to {path_str} because it is outside the project root")
+                })?;
+
+            let path_str = path.to_string_lossy();
+            println!("Downloading {url} to {path_str}...");
+        }
         Ok(())
     }
 }
