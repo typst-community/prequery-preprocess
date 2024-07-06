@@ -7,7 +7,7 @@ use crate::args::CliArguments;
 use crate::config;
 use crate::query::Query;
 
-use super::{Preprocessor, PreprocessorFactory};
+use super::{BoxedPreprocessor, Preprocessor, PreprocessorFactory};
 
 /// Auxilliary configuration for the preprocessor
 #[derive(Deserialize, Debug, Clone)]
@@ -79,7 +79,7 @@ impl PreprocessorFactory for WebResourceFactory {
         args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
-    ) -> Result<Box<dyn Preprocessor + 'a>> {
+    ) -> Result<BoxedPreprocessor<'a>> {
         let _config = Self::parse_config(config)?;
         let query = Self::build_query(query)?;
         let instance = WebResource { args, _config, query };

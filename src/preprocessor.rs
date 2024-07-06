@@ -17,6 +17,9 @@ pub trait Preprocessor {
     fn run(&mut self) -> Result<()>;
 }
 
+/// A dynamically dispatched, boxed preprocessor
+pub type BoxedPreprocessor<'a> = Box<dyn Preprocessor + 'a>;
+
 /// A factory for creating [Preprocessor]s
 pub trait PreprocessorFactory {
     /// The identifier of the preprocessor, referenced by the [config::Job::kind] field
@@ -29,12 +32,15 @@ pub trait PreprocessorFactory {
         args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
-    ) -> Result<Box<dyn Preprocessor + 'a>>;
+    ) -> Result<BoxedPreprocessor<'a>>;
 }
 
-type PreprocessorMap = HashMap<&'static str, Box<dyn PreprocessorFactory + Send + Sync>>;
+/// A dynamically dispatched, boxed preprocessor factory
+pub type BoxedPreprocessorFactory = Box<dyn PreprocessorFactory + Send + Sync>;
 
-/// Map of preprocessors defined and known to this crate
+type PreprocessorMap = HashMap<&'static str, BoxedPreprocessorFactory>;
+
+/// Map of preprocessor factories defined in and known to this crate
 pub static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
     fn register<T>(map: &mut PreprocessorMap, factory: T)
     where
