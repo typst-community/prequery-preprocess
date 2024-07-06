@@ -1,7 +1,7 @@
 #![warn(missing_docs)]
 //! A tool for processing [prequery](https://typst.app/universe/package/prequery) data in Typst documents.
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 
 use typst_preprocess::args::CliArguments;
@@ -19,11 +19,30 @@ async fn main() -> Result<()> {
     println!("{args:?}");
     println!("{config:?}");
 
-    for job in config.jobs {
-        println!("working on {}", job.name);
-        let (_name, preprocessor) = preprocessor::get_preprocessor(&args, job);
-        let mut preprocessor = preprocessor?;
+    let preprocessors: Vec<(_, Result<_>)> = config.jobs.into_iter()
+        .map(|job| preprocessor::get_preprocessor(&args, job))
+        .collect();
+
+    let mut errors = preprocessors.iter()
+        .filter_map(|(name, result)| {
+            result.as_ref().err().map(|error| (name, error))
+        })
+        .peekable();
+
+    if errors.peek().is_some() {
+        eprintln!("at least one preprocessor has configuration errors:");
+        for (name, error) in errors {
+            eprintln!("[{name}] {error}");
+        }
+        return Err(anyhow!("at least one preprocessor has configuration errors"));
+    }
+
+
+    for (name, preprocessor) in preprocessors {
+        let mut preprocessor = preprocessor.expect("error already handled");
+        println!("[{name}] beginning job...");
         preprocessor.run().await?;
+        println!("[{name}] finished job...");
     }
 
     Ok(())
