@@ -1,8 +1,10 @@
 //! CLI argument parsing types
 
-use std::path::{Component, Path, PathBuf};
+use std::path::{self, Component, Path, PathBuf};
 
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use tokio::fs;
 
 /// prequery-preprocess args
 #[derive(Debug, Clone, Parser)]
@@ -21,6 +23,37 @@ pub struct CliArguments {
 }
 
 impl CliArguments {
+    /// Returns the path of the `typst.toml` file that is closest to the input file.
+    pub async fn resolve_typst_toml(&self) -> Result<PathBuf> {
+        const TYPST_TOML: &str = "typst.toml";
+
+        let input = path::absolute(&self.input)
+            .with_context(|| {
+                let input_str = self.input.to_string_lossy();
+                format!("cannot resolve {TYPST_TOML} because input file {input_str} can't be resolved")
+            })?;
+        let mut p = input.clone();
+
+        // the input path needs to refer to a file. refer to typst.toml instead
+        p.set_file_name(TYPST_TOML);
+        // repeat as long as the path does not point to an accessible regular file
+        while !fs::metadata(&p).await.map_or(false, |m| m.is_file()) {
+            // remove the file name
+            let result = p.pop();
+            assert!(result, "the path should have had a final component of `{TYPST_TOML}`");
+            // go one level up
+            let result = p.pop();
+            if !result {
+                // if there is no level up, not typst.toml was found
+                let input_str = input.to_string_lossy();
+                return Err(anyhow!("no {TYPST_TOML} file was found in any ancestor directory of {input_str}"));
+            }
+            // re-add the file name
+            p.push(TYPST_TOML);
+        }
+        Ok(p)
+    }
+
     /// returns the root path. This is either the explicitly given root or the directory in which
     /// the input file is located. If the input file path only consists of a file name, the current
     /// directory (`"."`) is the root. In general, this function does not return an absolute path.

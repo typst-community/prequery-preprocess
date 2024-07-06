@@ -2,11 +2,13 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Deserializer};
 use serde::de::{self, Visitor};
+use tokio::fs;
 use toml::Table;
 
 /// The complete prequery config as found in the `[tool.prequery]` section in `typst.toml`. Usually,
@@ -50,19 +52,28 @@ pub struct Query {
     pub inputs: HashMap<String, String>,
 }
 
-/// Given the contents of a `typst.toml` file, parses the `[tool.prequery]` section as a [Config]
-pub fn read_typst_toml(content: &str) -> Result<Config> {
-    let mut config = toml::Table::from_str(content)?;
-    let config = config
-        .remove("tool")
-        .context("typst.toml does not contain `tool` section")?
-        .try_into::<Table>()
-        .context("typst.toml contains `tool` key, but it's not a table")?
-        .remove("prequery")
-        .context("typst.toml does not contain `tool.prequery` section")?
-        .try_into::<Config>()
-        .context("typst.toml contains `tool.prequery` key, but it's not a valid preprocessor configuration")?;
-    Ok(config)
+impl Config {
+    /// Given the contents of a `typst.toml` file, parses the `[tool.prequery]` section.
+    pub fn parse(content: &str) -> Result<Self> {
+        let mut config = toml::Table::from_str(content)?;
+        let config = config
+            .remove("tool")
+            .context("typst.toml does not contain `tool` section")?
+            .try_into::<Table>()
+            .context("typst.toml contains `tool` key, but it's not a table")?
+            .remove("prequery")
+            .context("typst.toml does not contain `tool.prequery` section")?
+            .try_into::<Self>()
+            .context("typst.toml contains `tool.prequery` key, but it's not a valid preprocessor configuration")?;
+        Ok(config)
+    }
+
+    /// Resolves and reads the given `typst.toml` file.
+    pub async fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let config = fs::read_to_string(path).await?;
+        let config = Self::parse(&config)?;
+        Ok(config)
+    }
 }
 
 /// Deserializes the `field` config: if given, must be either a string or `false`.
