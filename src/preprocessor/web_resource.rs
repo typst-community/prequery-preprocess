@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
 
 use crate::args::CliArguments;
 use crate::config;
@@ -53,6 +55,17 @@ impl Preprocessor for WebResource<'_> {
 
             let path_str = path.to_string_lossy();
             println!("Downloading {url} to {path_str}...");
+
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).await?;
+            }
+
+            let mut response = reqwest::get(url).await?;
+            let mut file = fs::File::create(path).await?;
+            while let Some(chunk) = response.chunk().await? {
+                file.write_all(&chunk).await?;
+            }
+            file.flush().await?;
         }
         Ok(())
     }
