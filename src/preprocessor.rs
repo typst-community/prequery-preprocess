@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 
@@ -14,6 +14,9 @@ pub mod web_resource;
 /// A configured preprocessor that can be executed for its side effect
 #[async_trait]
 pub trait Preprocessor {
+    /// this preprocessor's name, which normally comes from [config::Job::name].
+    fn name(&self) -> &str;
+
     /// Executes this preprocessor
     async fn run(&mut self) -> Result<()>;
 }
@@ -29,6 +32,7 @@ pub trait PreprocessorFactory {
     /// done yet.
     fn configure<'a>(
         &self,
+        name: String,
         args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
@@ -38,15 +42,16 @@ pub trait PreprocessorFactory {
 impl<T> PreprocessorFactory for T
 where
     T: Send + Sync,
-    T: for<'a> Fn(&'a CliArguments, toml::Table, config::Query) -> Result<BoxedPreprocessor<'a>>
+    T: for<'a> Fn(String, &'a CliArguments, toml::Table, config::Query) -> Result<BoxedPreprocessor<'a>>
 {
     fn configure<'a>(
         &self,
+        name: String,
         args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
     ) -> Result<BoxedPreprocessor<'a>> {
-        self(args, config, query)
+        self(name, args, config, query)
     }
 }
 
@@ -58,6 +63,7 @@ pub trait PreprocessorDefinition {
     /// Creates the preprocessor. The configuration is checked for validity, but no processing is
     /// done yet.
     fn configure<'a>(
+        name: String,
         args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
@@ -80,13 +86,13 @@ pub static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
 /// looks up the preprocessor according to [config::Job::kind] and returns the name and result of
 /// creating the preprocessor. The creation may fail if the kind is not recognized, or some part of
 /// the configuration was not valid for that kind.
-pub fn get_preprocessor<'a>(args: &'a CliArguments, job: config::Job) -> (String, Result<BoxedPreprocessor<'a>>) {
+pub fn get_preprocessor<'a>(args: &'a CliArguments, job: config::Job) -> Result<BoxedPreprocessor<'a>, (String, Error)> {
     let config::Job { name, kind, query, config } = job;
     let inner = || {
         let preprocessor = PREPROCESSORS.get(kind.as_str())
             .with_context(|| format!("unknown job kind: {kind}"))?
-            .configure(&args, config, query)?;
+            .configure(name.clone(), &args, config, query)?;
         Ok(preprocessor)
     };
-    (name, inner())
+    inner().map_err(|error| (name, error))
 }

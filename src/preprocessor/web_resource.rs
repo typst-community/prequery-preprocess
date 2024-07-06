@@ -31,6 +31,7 @@ type QueryData = Vec<Resource>;
 
 /// The `web-resource` preprocessor
 pub struct WebResource<'a> {
+    name: String,
     args: &'a CliArguments,
     _config: Config,
     query: Query,
@@ -44,6 +45,10 @@ impl WebResource<'_> {
 
 #[async_trait]
 impl Preprocessor for WebResource<'_> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
     async fn run(&mut self) -> Result<()> {
         let query_data = self.query().await?;
         for Resource { url, path } in query_data {
@@ -99,13 +104,14 @@ impl PreprocessorDefinition for WebResourceFactory {
     const NAME: &'static str = "web-resource";
 
     fn configure<'a>(
+        name: String,
         args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
     ) -> Result<BoxedPreprocessor<'a>> {
         let _config = Self::parse_config(config)?;
         let query = Self::build_query(query)?;
-        let instance = WebResource { args, _config, query };
+        let instance = WebResource { name, args, _config, query };
         Ok(Box::new(instance))
     }
 }

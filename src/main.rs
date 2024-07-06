@@ -19,14 +19,12 @@ async fn main() -> Result<()> {
     println!("{args:?}");
     println!("{config:?}");
 
-    let preprocessors: Vec<(_, Result<_>)> = config.jobs.into_iter()
+    let preprocessors: Vec<_> = config.jobs.into_iter()
         .map(|job| preprocessor::get_preprocessor(&args, job))
         .collect();
 
     let mut errors = preprocessors.iter()
-        .filter_map(|(name, result)| {
-            result.as_ref().err().map(|error| (name, error))
-        })
+        .filter_map(|result| result.as_ref().err())
         .peekable();
 
     if errors.peek().is_some() {
@@ -38,11 +36,11 @@ async fn main() -> Result<()> {
     }
 
 
-    for (name, preprocessor) in preprocessors {
+    for preprocessor in preprocessors {
         let mut preprocessor = preprocessor.expect("error already handled");
-        println!("[{name}] beginning job...");
+        println!("[{}] beginning job...", preprocessor.name());
         preprocessor.run().await?;
-        println!("[{name}] finished job...");
+        println!("[{}] finished job", preprocessor.name());
     }
 
     Ok(())
