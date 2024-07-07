@@ -6,6 +6,7 @@ use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::fs;
+use tokio::task::JoinSet;
 use tokio::io::AsyncWriteExt;
 
 use crate::args::ARGS;
@@ -40,6 +41,31 @@ impl WebResource {
     async fn query(&self) -> Result<QueryData> {
         self.query.query().await
     }
+
+    async fn download(resource: Resource) -> Result<()> {
+        let Resource { url, path } = resource;
+
+        let path = ARGS.resolve(&path)
+        .with_context(|| {
+            let path_str = path.to_string_lossy();
+            format!("cannot download to {path_str} because it is outside the project root")
+        })?;
+
+        let path_str = path.to_string_lossy();
+        println!("Downloading {url} to {path_str}...");
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+
+        let mut response = reqwest::get(url).await?;
+        let mut file = fs::File::create(path).await?;
+        while let Some(chunk) = response.chunk().await? {
+            file.write_all(&chunk).await?;
+        }
+        file.flush().await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -50,27 +76,16 @@ impl Preprocessor for WebResource {
 
     async fn run(&mut self) -> Result<()> {
         let query_data = self.query().await?;
-        for Resource { url, path } in query_data {
-            let path = ARGS.resolve(&path)
-                .with_context(|| {
-                    let path_str = path.to_string_lossy();
-                    format!("cannot download to {path_str} because it is outside the project root")
-                })?;
 
-            let path_str = path.to_string_lossy();
-            println!("Downloading {url} to {path_str}...");
-
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).await?;
-            }
-
-            let mut response = reqwest::get(url).await?;
-            let mut file = fs::File::create(path).await?;
-            while let Some(chunk) = response.chunk().await? {
-                file.write_all(&chunk).await?;
-            }
-            file.flush().await?;
+        let mut set = JoinSet::new();
+        for resource in query_data {
+            set.spawn(Self::download(resource));
         }
+
+        while let Some(_) = set.join_next().await {
+            // we just want to join all the tasks
+        }
+
         Ok(())
     }
 }
