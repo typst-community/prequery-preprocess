@@ -6,7 +6,6 @@ use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 
-use crate::args::CliArguments;
 use crate::config;
 
 pub mod web_resource;
@@ -22,7 +21,7 @@ pub trait Preprocessor {
 }
 
 /// A dynamically dispatched, boxed preprocessor
-pub type BoxedPreprocessor<'a> = Box<dyn Preprocessor + 'a>;
+pub type BoxedPreprocessor = Box<dyn Preprocessor>;
 
 /// A factory for creating [Preprocessor]s. This trait has a blanket implementation for functions
 /// with the signature of [PreprocessorDefinition::configure] and does not usually need to be
@@ -30,28 +29,26 @@ pub type BoxedPreprocessor<'a> = Box<dyn Preprocessor + 'a>;
 pub trait PreprocessorFactory {
     /// Creates the preprocessor. The configuration is checked for validity, but no processing is
     /// done yet.
-    fn configure<'a>(
+    fn configure(
         &self,
         name: String,
-        args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
-    ) -> Result<BoxedPreprocessor<'a>>;
+    ) -> Result<BoxedPreprocessor>;
 }
 
 impl<T> PreprocessorFactory for T
 where
     T: Send + Sync,
-    T: for<'a> Fn(String, &'a CliArguments, toml::Table, config::Query) -> Result<BoxedPreprocessor<'a>>
+    T: Fn(String, toml::Table, config::Query) -> Result<BoxedPreprocessor>
 {
-    fn configure<'a>(
+    fn configure(
         &self,
         name: String,
-        args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
-    ) -> Result<BoxedPreprocessor<'a>> {
-        self(name, args, config, query)
+    ) -> Result<BoxedPreprocessor> {
+        self(name, config, query)
     }
 }
 
@@ -62,12 +59,11 @@ pub trait PreprocessorDefinition {
 
     /// Creates the preprocessor. The configuration is checked for validity, but no processing is
     /// done yet.
-    fn configure<'a>(
+    fn configure(
         name: String,
-        args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
-    ) -> Result<BoxedPreprocessor<'a>>;
+    ) -> Result<BoxedPreprocessor>;
 }
 
 type PreprocessorMap = HashMap<&'static str, &'static (dyn PreprocessorFactory + Send + Sync)>;
@@ -86,12 +82,12 @@ pub static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
 /// looks up the preprocessor according to [config::Job::kind] and returns the name and result of
 /// creating the preprocessor. The creation may fail if the kind is not recognized, or some part of
 /// the configuration was not valid for that kind.
-pub fn get_preprocessor<'a>(args: &'a CliArguments, job: config::Job) -> Result<BoxedPreprocessor<'a>, (String, Error)> {
+pub fn get_preprocessor(job: config::Job) -> Result<BoxedPreprocessor, (String, Error)> {
     let config::Job { name, kind, query, config } = job;
     let inner = || {
         let preprocessor = PREPROCESSORS.get(kind.as_str())
             .with_context(|| format!("unknown job kind: {kind}"))?
-            .configure(name.clone(), &args, config, query)?;
+            .configure(name.clone(), config, query)?;
         Ok(preprocessor)
     };
     inner().map_err(|error| (name, error))

@@ -8,7 +8,7 @@ use serde::Deserialize;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
-use crate::args::CliArguments;
+use crate::args::ARGS;
 use crate::config;
 use crate::query::Query;
 
@@ -30,21 +30,20 @@ pub struct Resource {
 type QueryData = Vec<Resource>;
 
 /// The `web-resource` preprocessor
-pub struct WebResource<'a> {
+pub struct WebResource {
     name: String,
-    args: &'a CliArguments,
     _config: Config,
     query: Query,
 }
 
-impl WebResource<'_> {
+impl WebResource {
     async fn query(&self) -> Result<QueryData> {
-        self.query.query(self.args).await
+        self.query.query().await
     }
 }
 
 #[async_trait]
-impl Preprocessor for WebResource<'_> {
+impl Preprocessor for WebResource {
     fn name(&self) -> &str {
         &self.name
     }
@@ -52,7 +51,7 @@ impl Preprocessor for WebResource<'_> {
     async fn run(&mut self) -> Result<()> {
         let query_data = self.query().await?;
         for Resource { url, path } in query_data {
-            let path = self.args.resolve(&path)
+            let path = ARGS.resolve(&path)
                 .with_context(|| {
                     let path_str = path.to_string_lossy();
                     format!("cannot download to {path_str} because it is outside the project root")
@@ -103,15 +102,14 @@ impl WebResourceFactory {
 impl PreprocessorDefinition for WebResourceFactory {
     const NAME: &'static str = "web-resource";
 
-    fn configure<'a>(
+    fn configure(
         name: String,
-        args: &'a CliArguments,
         config: toml::Table,
         query: config::Query,
-    ) -> Result<BoxedPreprocessor<'a>> {
+    ) -> Result<BoxedPreprocessor> {
         let _config = Self::parse_config(config)?;
         let query = Self::build_query(query)?;
-        let instance = WebResource { name, args, _config, query };
+        let instance = WebResource { name, _config, query };
         Ok(Box::new(instance))
     }
 }

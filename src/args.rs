@@ -4,7 +4,11 @@ use std::path::{self, Component, Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use once_cell::sync::Lazy;
 use tokio::fs;
+
+/// Map of preprocessors defined in this crate
+pub static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// prequery-preprocess args
 #[derive(Debug, Clone, Parser)]

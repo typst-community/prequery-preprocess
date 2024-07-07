@@ -2,9 +2,8 @@
 //! A tool for processing [prequery](https://typst.app/universe/package/prequery) data in Typst documents.
 
 use anyhow::{anyhow, Result};
-use clap::Parser;
 
-use typst_preprocess::args::CliArguments;
+use typst_preprocess::args::ARGS;
 use typst_preprocess::config;
 use typst_preprocess::preprocessor;
 
@@ -12,15 +11,11 @@ use typst_preprocess::preprocessor;
 /// then executes the jobs.
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = CliArguments::parse();
-    let typst_toml = args.resolve_typst_toml().await?;
+    let typst_toml = ARGS.resolve_typst_toml().await?;
     let config = config::Config::read(typst_toml).await?;
 
-    println!("{args:?}");
-    println!("{config:?}");
-
     let preprocessors: Vec<_> = config.jobs.into_iter()
-        .map(|job| preprocessor::get_preprocessor(&args, job))
+        .map(|job| preprocessor::get_preprocessor(job))
         .collect();
 
     let mut errors = preprocessors.iter()

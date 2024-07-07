@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 use tokio::process::Command;
 
-use crate::args::CliArguments;
+use crate::args::ARGS;
 use crate::config;
 
 /// A query that can be run against a Typst document. This is usually configured from a
@@ -34,10 +34,10 @@ impl Query {
     }
 
     /// Builds the `typst query` command line for executing this command.
-    pub fn command(&self, args: &CliArguments) -> Command {
-        let mut cmd = Command::new(&args.typst);
+    pub fn command(&self) -> Command {
+        let mut cmd = Command::new(&ARGS.typst);
         cmd.arg("query");
-        if let Some(root) = &args.root {
+        if let Some(root) = &ARGS.root {
             cmd.arg("--root").arg(root);
         }
         if let Some(field) = &self.field {
@@ -53,18 +53,18 @@ impl Query {
             cmd.arg("--input").arg(&input);
         }
         cmd.arg("--input").arg("prequery-fallback=true");
-        cmd.arg(&args.input).arg(&self.selector);
+        cmd.arg(&ARGS.input).arg(&self.selector);
 
         cmd
     }
 
     /// Executes the query. This builds the necessary command line, runs the command, and returns
     /// the result parsed into the desired type from JSON.
-    pub async fn query<T>(&self, args: &CliArguments) -> Result<T>
+    pub async fn query<T>(&self) -> Result<T>
     where
         T: for<'a> Deserialize<'a>
     {
-        let mut cmd = self.command(args);
+        let mut cmd = self.command();
         cmd.stderr(Stdio::inherit());
         let output = cmd.output().await?;
         if !output.status.success() {
