@@ -1,34 +1,20 @@
 //! The `web-resource` preprocessor
 
-use std::path::PathBuf;
-
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use serde::Deserialize;
 use tokio::fs;
 use tokio::task::JoinSet;
 use tokio::io::AsyncWriteExt;
 
 use crate::args::ARGS;
-use crate::config;
+use crate::config:: Query as ConfigQuery;
 use crate::query::Query;
 
 use super::{BoxedPreprocessor, Preprocessor, PreprocessorDefinition};
 
-/// Auxilliary configuration for the preprocessor
-#[derive(Deserialize, Debug, Clone)]
-pub struct Config {}
+mod config;
 
-/// A resource that should be downloaded
-#[derive(Deserialize, Debug, Clone)]
-pub struct Resource {
-    /// The URL to download from
-    pub url: String,
-    /// The path to download to. Must be in the document's root.
-    pub path: PathBuf,
-}
-
-type QueryData = Vec<Resource>;
+use config::*;
 
 /// The `web-resource` preprocessor
 pub struct WebResource {
@@ -100,7 +86,7 @@ impl WebResourceFactory {
         Ok(config)
     }
 
-    fn build_query(config: config::Query) -> Result<Query> {
+    fn build_query(config: ConfigQuery) -> Result<Query> {
         let config = Query::builder()
             .default_field(Some("value".to_string()))
             .default_one(false)
@@ -120,7 +106,7 @@ impl PreprocessorDefinition for WebResourceFactory {
     fn configure(
         name: String,
         config: toml::Table,
-        query: config::Query,
+        query: ConfigQuery,
     ) -> Result<BoxedPreprocessor> {
         let _config = Self::parse_config(config)?;
         let query = Self::build_query(query)?;
