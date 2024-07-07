@@ -3,6 +3,8 @@
 
 use anyhow::{anyhow, Result};
 
+
+use tokio::task::JoinSet;
 use typst_preprocess::args::ARGS;
 use typst_preprocess::config;
 use typst_preprocess::preprocessor;
@@ -30,12 +32,27 @@ async fn main() -> Result<()> {
         return Err(anyhow!("at least one preprocessor has configuration errors"));
     }
 
+    let mut set = JoinSet::new();
 
     for preprocessor in preprocessors {
         let mut preprocessor = preprocessor.expect("error already handled");
-        println!("[{}] beginning job...", preprocessor.name());
-        preprocessor.run().await?;
-        println!("[{}] finished job", preprocessor.name());
+        set.spawn(async move {
+            println!("[{}] beginning job...", preprocessor.name());
+            let result = preprocessor.run().await;
+            match &result {
+                Ok(()) => {
+                    println!("[{}] job finished", preprocessor.name());
+                },
+                Err(error) => {
+                    eprintln!("[{}] job failed: {error}", preprocessor.name());
+                },
+            }
+            result
+        });
+    }
+
+    while let Some(_) = set.join_next().await {
+        // we just want to join all the tasks
     }
 
     Ok(())

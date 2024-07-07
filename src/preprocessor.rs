@@ -21,7 +21,7 @@ pub trait Preprocessor {
 }
 
 /// A dynamically dispatched, boxed preprocessor
-pub type BoxedPreprocessor = Box<dyn Preprocessor>;
+pub type BoxedPreprocessor = Box<dyn Preprocessor + Send>;
 
 /// A factory for creating [Preprocessor]s. This trait has a blanket implementation for functions
 /// with the signature of [PreprocessorDefinition::configure] and does not usually need to be
@@ -66,7 +66,7 @@ pub trait PreprocessorDefinition {
     ) -> Result<BoxedPreprocessor>;
 }
 
-type PreprocessorMap = HashMap<&'static str, &'static (dyn PreprocessorFactory + Send + Sync)>;
+type PreprocessorMap = HashMap<&'static str, &'static (dyn PreprocessorFactory + Sync)>;
 
 /// Map of preprocessors defined in this crate
 pub static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
