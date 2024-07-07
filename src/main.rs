@@ -16,11 +16,11 @@ async fn main() -> Result<()> {
     let typst_toml = ARGS.resolve_typst_toml().await?;
     let config = config::Config::read(typst_toml).await?;
 
-    let preprocessors: Vec<_> = config.jobs.into_iter()
+    let jobs: Vec<_> = config.jobs.into_iter()
         .map(|job| preprocessor::get_preprocessor(job))
         .collect();
 
-    let mut errors = preprocessors.iter()
+    let mut errors = jobs.iter()
         .filter_map(|result| result.as_ref().err())
         .peekable();
 
@@ -34,17 +34,17 @@ async fn main() -> Result<()> {
 
     let mut set = JoinSet::new();
 
-    for preprocessor in preprocessors {
-        let mut preprocessor = preprocessor.expect("error already handled");
+    for job in jobs {
+        let mut job = job.expect("error already handled");
         set.spawn(async move {
-            println!("[{}] beginning job...", preprocessor.name());
-            let result = preprocessor.run().await;
+            println!("[{}] beginning job...", job.name());
+            let result = job.run().await;
             match &result {
                 Ok(()) => {
-                    println!("[{}] job finished", preprocessor.name());
+                    println!("[{}] job finished", job.name());
                 },
                 Err(error) => {
-                    eprintln!("[{}] job failed: {error}", preprocessor.name());
+                    eprintln!("[{}] job failed: {error}", job.name());
                 },
             }
             result
