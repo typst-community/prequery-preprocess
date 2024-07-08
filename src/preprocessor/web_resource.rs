@@ -126,8 +126,8 @@ impl Preprocessor for Arc<WebResource> {
         let query_data = self.query().await?;
 
         let mut set = JoinSet::new();
-        for resource in query_data {
-            set.spawn(Arc::clone(self).download(resource));
+        for (path, url) in query_data.resources {
+            set.spawn(Arc::clone(self).download(Resource { path, url }));
         }
 
         while let Some(_) = set.join_next().await {
