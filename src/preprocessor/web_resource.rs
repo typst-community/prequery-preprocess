@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use tokio::fs;
+use tokio::{fs, sync::Mutex};
 use tokio::task::JoinSet;
 use tokio::io::AsyncWriteExt;
 
@@ -23,28 +23,28 @@ use index::*;
 use query_data::*;
 
 /// The `web-resource` preprocessor
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct WebResource {
     name: String,
     config: Config,
-    index: Option<Index>,
+    index: Option<Mutex<Index>>,
     query: Query,
 }
 
 impl WebResource {
     async fn populate_index(&mut self) -> Result<()> {
-        if let Some(index) = self.config.resolve_index_path().await {
+        if let Some(location) = self.config.resolve_index_path().await {
             // an index is in use
-            let index = index?;
-            let index = if fs::try_exists(&index).await.unwrap_or(false) {
+            let location = location?;
+            let index = if fs::try_exists(&location).await.unwrap_or(false) {
                 // read the existing index
-                Index::read(&index).await?
+                Index::read(location).await?
             } else {
                 // generate an empty index
-                Index::new()
+                Index::new(location)
             };
 
-            self.index = Some(index);
+            self.index = Some(Mutex::new(index));
         } else {
             // no index is in use
             self.index = None;
@@ -59,16 +59,16 @@ impl WebResource {
 
     async fn download(self: Arc<Self>, resource: Resource) -> Result<()> {
         let name = self.name();
-        let Resource { url, path } = resource;
+        let Resource { url, path } = &resource;
 
-        let path = ARGS.resolve(&path)
-        .with_context(|| {
-            let path_str = path.to_string_lossy();
-            format!("[{name}] cannot download to {path_str} because it is outside the project root")
-        })?;
-        let path_str = path.to_string_lossy();
+        let resolved_path = ARGS.resolve(path)
+            .with_context(|| {
+                let path_str = path.to_string_lossy();
+                format!("[{name}] cannot download to {path_str} because it is outside the project root")
+            })?;
+        let path_str = resolved_path.to_string_lossy();
 
-        let exists = fs::try_exists(&path).await.unwrap_or(false);
+        let exists = fs::try_exists(&resolved_path).await.unwrap_or(false);
         let download = if !exists {
             println!("[{name}] Downloading {url} to {path_str}...");
             true
@@ -76,25 +76,35 @@ impl WebResource {
             println!("[{name}] Downloading {url} to {path_str} (overwrite of existing files was forced)...");
             true
         } else if let Some(index) = &self.index {
-            // TODO check whether the URL in the index is the same as the one in the typst file
-            println!("[{name}] Downloading {url} to {path_str}...");
-            true
+            let index = index.lock().await;
+            if index.is_up_to_date(path, url) {
+                println!("[{name}] Downloading of {url} to {path_str} skipped (file exists)");
+                false
+            } else {
+                println!("[{name}] Downloading {url} to {path_str} (URL has changed)...");
+                true
+            }
         } else {
             println!("[{name}] Downloading of {url} to {path_str} skipped (file exists)");
             false
         };
 
         if download {
-            if let Some(parent) = path.parent() {
+            if let Some(parent) = resolved_path.parent() {
                 fs::create_dir_all(parent).await?;
             }
 
-            let mut response = reqwest::get(&url).await?;
-            let mut file = fs::File::create(&path).await?;
+            let mut response = reqwest::get(url).await?;
+            let mut file = fs::File::create(&resolved_path).await?;
             while let Some(chunk) = response.chunk().await? {
                 file.write_all(&chunk).await?;
             }
             file.flush().await?;
+
+            if let Some(index) = &self.index {
+                let mut index = index.lock().await;
+                index.update(resource.clone());
+            }
             println!("[{name}] Downloading {url} to {path_str} finished");
         }
 
@@ -122,6 +132,11 @@ impl Preprocessor for Arc<WebResource> {
 
         while let Some(_) = set.join_next().await {
             // we just want to join all the tasks
+        }
+
+        if let Some(index) = &self.index {
+            let index = index.lock().await;
+            index.write().await?;
         }
 
         Ok(())

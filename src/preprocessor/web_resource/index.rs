@@ -1,6 +1,7 @@
+use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use serde::de::{self, Visitor};
@@ -11,6 +12,8 @@ use tokio::io::AsyncWriteExt;
 /// Represents an index of resources.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Index {
+    #[serde(skip)]
+    location: PathBuf,
     /// a file format version number. Should be 1.
     pub version: usize,
     /// The entries in the index.
@@ -33,29 +36,51 @@ pub struct Resource {
 }
 
 impl Index {
-    pub fn new() -> Self {
+    pub fn new(location: PathBuf) -> Self {
         Self {
+            location,
             version: 1,
             entries: BTreeMap::new(),
         }
     }
 
     /// Reads an index from a file.
-    pub async fn read<P: AsRef<Path>>(file_path: P) -> Result<Self> {
-        let index = fs::read_to_string(file_path).await?;
-        let index: Self = toml::from_str(&index)?;
+    pub async fn read(location: PathBuf) -> Result<Self> {
+        let index = fs::read_to_string(&location).await?;
+        let mut index: Self = toml::from_str(&index)?;
         if index.version != 1 {
             return Err(anyhow!("index file version number was not 1"));
         }
+        index.location = location;
         Ok(index)
     }
 
     /// Writes the index to a file.
-    pub async fn write<P: AsRef<Path>>(&self, file_path: P) -> Result<()> {
-        let mut file = fs::File::create(file_path).await?;
+    pub async fn write(&self) -> Result<()> {
+        let mut file = fs::File::create(&self.location).await?;
         let index = toml::to_string(self)?;
         file.write_all(index.as_bytes()).await?;
         Ok(())
+    }
+
+    pub fn get<P>(&self, path: &P) -> Option<&Resource>
+    where
+        PathBuf: Borrow<P>,
+        P: Ord + ?Sized,
+    {
+        self.entries.get(path)
+    }
+
+    pub fn is_up_to_date<P>(&self, path: &P, url: &str) -> bool
+    where
+        PathBuf: Borrow<P>,
+        P: Ord + ?Sized,
+    {
+        self.get(path).is_some_and(|res| res.url == url)
+    }
+
+    pub fn update(&mut self, resource: Resource) {
+        self.entries.insert(resource.path.clone(), resource);
     }
 }
 
