@@ -15,8 +15,10 @@ use crate::query::Query;
 use super::{BoxedPreprocessor, Preprocessor, PreprocessorDefinition};
 
 mod config;
+mod query_data;
 
 use config::*;
+use query_data::*;
 
 /// The `web-resource` preprocessor
 #[derive(Debug, Clone, PartialEq, Eq)]

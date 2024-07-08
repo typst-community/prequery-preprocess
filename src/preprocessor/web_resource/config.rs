@@ -45,17 +45,6 @@ impl Config {
     }
 }
 
-/// A resource that should be downloaded
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Resource {
-    /// The path to download to. Must be in the document's root.
-    pub path: PathBuf,
-    /// The URL to download from
-    pub url: String,
-}
-
-pub type QueryData = Vec<Resource>;
-
 /// Deserializes the `index` config: if given, must be either a boolean or string.
 fn deserialize_index<'de, D>(deserializer: D) -> Result<Option<PathBuf>, D::Error>
 where
