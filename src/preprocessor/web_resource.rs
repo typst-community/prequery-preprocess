@@ -19,7 +19,7 @@ use config::*;
 /// The `web-resource` preprocessor
 pub struct WebResource {
     name: String,
-    _config: Config,
+    config: Config,
     query: Query,
 }
 
@@ -108,9 +108,9 @@ impl PreprocessorDefinition for WebResourceFactory {
         config: toml::Table,
         query: ConfigQuery,
     ) -> Result<BoxedPreprocessor> {
-        let _config = Self::parse_config(config)?;
+        let config = Self::parse_config(config)?;
         let query = Self::build_query(query)?;
-        let instance = WebResource { name, _config, query };
+        let instance = WebResource { name, config, query };
         Ok(Box::new(instance))
     }
 }
