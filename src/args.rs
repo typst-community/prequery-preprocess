@@ -11,7 +11,7 @@ use tokio::fs;
 pub static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// prequery-preprocess args
-#[derive(Debug, Clone, Parser)]
+#[derive(Parser, Debug, Clone, PartialEq, Eq)]
 pub struct CliArguments {
     /// Configures the types executable to use
     #[clap(long, value_name = "EXE", default_value = "typst")]

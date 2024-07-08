@@ -19,6 +19,7 @@ mod config;
 use config::*;
 
 /// The `web-resource` preprocessor
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebResource {
     name: String,
     config: Config,
@@ -87,7 +88,7 @@ impl Preprocessor for Arc<WebResource> {
 
         let mut set = JoinSet::new();
         for resource in query_data {
-            set.spawn(self.clone().download(resource));
+            set.spawn(Arc::clone(self).download(resource));
         }
 
         while let Some(_) = set.join_next().await {
@@ -99,6 +100,7 @@ impl Preprocessor for Arc<WebResource> {
 }
 
 /// The `web-resource` preprocessor factory
+#[derive(Debug, Clone, Copy)]
 pub struct WebResourceFactory;
 
 impl WebResourceFactory {

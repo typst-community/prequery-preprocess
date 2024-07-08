@@ -13,7 +13,7 @@ use crate::config;
 
 /// A query that can be run against a Typst document. This is usually configured from a
 /// [config::Query] using a [QueryBuilder].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Query {
     /// The selector to be queried, e.g. `<label>`
     pub selector: String,
@@ -79,7 +79,7 @@ impl Query {
 
 /// A query builder. Default values for the various configs can be set. If a setting is missing from
 /// the [config::Query], that default will be used.
-#[derive(Debug, Clone, Default)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct QueryBuilder {
     /// The selector to be queried, e.g. `<label>`
     pub selector: Option<String>,

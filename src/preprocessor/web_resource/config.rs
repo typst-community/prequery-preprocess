@@ -8,7 +8,7 @@ use serde::de::{self, Visitor};
 use crate::args::ARGS;
 
 /// Auxilliary configuration for the preprocessor
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Config {
     /// Always downloads and overwrites all files. It is not recommended to permanently set this
     /// option, but temporarily enabling it can make sense to check for changed resources.
@@ -46,12 +46,12 @@ impl Config {
 }
 
 /// A resource that should be downloaded
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Resource {
-    /// The URL to download from
-    pub url: String,
     /// The path to download to. Must be in the document's root.
     pub path: PathBuf,
+    /// The URL to download from
+    pub url: String,
 }
 
 pub type QueryData = Vec<Resource>;

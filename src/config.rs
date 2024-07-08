@@ -13,7 +13,7 @@ use toml::Table;
 
 /// The complete prequery config as found in the `[tool.prequery]` section in `typst.toml`. Usually,
 /// that section will be defined as multiple `[[tool.prequery.jobs]]` entries.
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Config {
     /// The preprocessing jobs to execute
     pub jobs: Vec<Job>,
@@ -21,7 +21,7 @@ pub struct Config {
 
 /// A single preprocessing job. A job normally consists of executing the configured query and then
 /// processing the result in some way, usually writing to files in the project root.
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Job {
     /// The job's name (for human consumption, e.g. in logs)
     pub name: String,
@@ -36,7 +36,7 @@ pub struct Job {
 
 /// Query configuration. All fields here are optional, as preprocessors can define their own
 /// defaults.
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Query {
     /// The selector to be queried, e.g. `<label>`
     pub selector: Option<String>,
