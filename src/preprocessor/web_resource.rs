@@ -15,9 +15,11 @@ use crate::query::Query;
 use super::{BoxedPreprocessor, Preprocessor, PreprocessorDefinition};
 
 mod config;
+mod index;
 mod query_data;
 
 use config::*;
+use index::*;
 use query_data::*;
 
 /// The `web-resource` preprocessor
@@ -25,10 +27,32 @@ use query_data::*;
 pub struct WebResource {
     name: String,
     config: Config,
+    index: Option<Index>,
     query: Query,
 }
 
 impl WebResource {
+    async fn populate_index(&mut self) -> Result<()> {
+        if let Some(index) = self.config.resolve_index_path().await {
+            // an index is in use
+            let index = index?;
+            let index = if fs::try_exists(&index).await.unwrap_or(false) {
+                // read the existing index
+                Index::read(&index).await?
+            } else {
+                // generate an empty index
+                Index::new()
+            };
+
+            self.index = Some(index);
+        } else {
+            // no index is in use
+            self.index = None;
+        }
+
+        Ok(())
+    }
+
     async fn query(&self) -> Result<QueryData> {
         self.query.query().await
     }
@@ -51,8 +75,7 @@ impl WebResource {
         } else if self.config.overwrite {
             println!("[{name}] Downloading {url} to {path_str} (overwrite of existing files was forced)...");
             true
-        } else if let Some(index) = self.config.resolve_index_path().await {
-            let index = index?;
+        } else if let Some(index) = &self.index {
             // TODO check whether the URL in the index is the same as the one in the typst file
             println!("[{name}] Downloading {url} to {path_str}...");
             true
@@ -86,6 +109,10 @@ impl Preprocessor for Arc<WebResource> {
     }
 
     async fn run(&mut self) -> Result<()> {
+        Arc::get_mut(self)
+            .expect("web-resource ref count should be one before starting the processing")
+            .populate_index().await?;
+
         let query_data = self.query().await?;
 
         let mut set = JoinSet::new();
@@ -135,8 +162,10 @@ impl PreprocessorDefinition for WebResourceFactory {
         query: ConfigQuery,
     ) -> Result<BoxedPreprocessor> {
         let config = Self::parse_config(config)?;
+        // index begins as None and is asynchronously populated later
+        let index = None;
         let query = Self::build_query(query)?;
-        let instance = WebResource { name, config, query };
+        let instance = WebResource { name, index, config, query };
         Ok(Box::new(Arc::new(instance)))
     }
 }

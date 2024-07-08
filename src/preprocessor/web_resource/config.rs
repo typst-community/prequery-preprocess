@@ -16,7 +16,7 @@ pub struct Config {
     pub overwrite: bool,
 
     /// Change this to true or a file path given as a string to enable the index. If true, the
-    /// default path is "web-resource-index.json"; note that if multiple web-resource jobs are using
+    /// default path is "web-resource-index.toml"; note that if multiple web-resource jobs are using
     /// the same index file, this will lead to problems!
     #[serde(default, deserialize_with = "deserialize_index")]
     pub index: Option<PathBuf>,
@@ -63,7 +63,7 @@ where
         where
             E: de::Error,
         {
-            Ok(v.then(|| "web-resource-index.json".into()))
+            Ok(v.then(|| "web-resource-index.toml".into()))
         }
 
         fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
