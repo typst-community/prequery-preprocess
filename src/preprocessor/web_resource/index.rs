@@ -91,14 +91,14 @@ where
     serializer.collect_seq(map.values())
 }
 
-/// Deserializes the `field` config: if given, must be either a string or `false`.
+/// Deserializes the `entries` sequence as a map.
 fn deserialize_entries<'de, D>(deserializer: D) -> Result<BTreeMap<PathBuf, Resource>, D::Error>
 where
     D: Deserializer<'de>
 {
-    struct FieldVisitor;
+    struct EntriesVisitor;
 
-    impl<'de> Visitor<'de> for FieldVisitor {
+    impl<'de> Visitor<'de> for EntriesVisitor {
         type Value = BTreeMap<PathBuf, Resource>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -116,5 +116,5 @@ where
         }
     }
 
-    deserializer.deserialize_any(FieldVisitor)
+    deserializer.deserialize_seq(EntriesVisitor)
 }
