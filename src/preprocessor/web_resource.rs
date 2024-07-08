@@ -1,5 +1,7 @@
 //! The `web-resource` preprocessor
 
+use std::sync::Arc;
+
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use tokio::fs;
@@ -19,7 +21,7 @@ use config::*;
 /// The `web-resource` preprocessor
 pub struct WebResource {
     name: String,
-    config: Config,
+    config: Arc<Config>,
     query: Query,
 }
 
@@ -28,7 +30,7 @@ impl WebResource {
         self.query.query().await
     }
 
-    async fn download(resource: Resource) -> Result<()> {
+    async fn download(config: Arc<Config>, resource: Resource) -> Result<()> {
         let Resource { url, path } = resource;
 
         let path = ARGS.resolve(&path)
@@ -36,20 +38,38 @@ impl WebResource {
             let path_str = path.to_string_lossy();
             format!("cannot download to {path_str} because it is outside the project root")
         })?;
-
         let path_str = path.to_string_lossy();
-        println!("Downloading {url} to {path_str}...");
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).await?;
+        let exists = fs::try_exists(&path).await.unwrap_or(false);
+        let download = if !exists {
+            println!("Downloading {url} to {path_str}...");
+            true
+        } else if config.overwrite {
+            println!("Downloading {url} to {path_str} (overwrite of existing files was forced)...");
+            true
+        } else if let Some(index) = config.resolve_index_path().await {
+            let index = index?;
+            // TODO check whether the URL in the index is the same as the one in the typst file
+            println!("Downloading {url} to {path_str}...");
+            true
+        } else {
+            println!("Downloading of {url} to {path_str} skipped (file exists)...");
+            false
+        };
+
+        if download {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).await?;
+            }
+
+            let mut response = reqwest::get(url).await?;
+            let mut file = fs::File::create(path).await?;
+            while let Some(chunk) = response.chunk().await? {
+                file.write_all(&chunk).await?;
+            }
+            file.flush().await?;
         }
 
-        let mut response = reqwest::get(url).await?;
-        let mut file = fs::File::create(path).await?;
-        while let Some(chunk) = response.chunk().await? {
-            file.write_all(&chunk).await?;
-        }
-        file.flush().await?;
         Ok(())
     }
 }
@@ -65,7 +85,7 @@ impl Preprocessor for WebResource {
 
         let mut set = JoinSet::new();
         for resource in query_data {
-            set.spawn(Self::download(resource));
+            set.spawn(Self::download(self.config.clone(), resource));
         }
 
         while let Some(_) = set.join_next().await {
@@ -108,7 +128,7 @@ impl PreprocessorDefinition for WebResourceFactory {
         config: toml::Table,
         query: ConfigQuery,
     ) -> Result<BoxedPreprocessor> {
-        let config = Self::parse_config(config)?;
+        let config = Arc::new(Self::parse_config(config)?);
         let query = Self::build_query(query)?;
         let instance = WebResource { name, config, query };
         Ok(Box::new(instance))
