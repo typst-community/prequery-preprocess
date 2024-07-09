@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
@@ -20,6 +21,55 @@ pub struct WebResource {
     config: Config,
     index: Option<Mutex<Index>>,
     query: Query,
+}
+
+/// The state of the file: if and how the existing file corresponds to the desired web resource.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResourceState {
+    /// No local file exists.
+    Missing,
+    /// A re-download is forced despite the file existing.
+    Forced,
+    /// The file seems to be up-to-date: the URL hasn't changed, or no index is kept.
+    Existing,
+    /// The file seems is not up-to-date: the URL has changed according to the index.
+    ChangedResource,
+}
+
+impl ResourceState {
+    pub fn download(self) -> bool {
+        match self {
+            Self::Missing | Self::Forced | Self::ChangedResource => true,
+            Self::Existing => false,
+        }
+    }
+
+    pub fn reason(self) -> Option<&'static str> {
+        match self {
+            Self::Missing => None,
+            Self::Forced => Some("overwrite of existing files was forced"),
+            Self::ChangedResource => Some("URL has changed"),
+            Self::Existing => Some("file exists"),
+        }
+    }
+
+    fn print_reason(self) {
+        if let Some(msg) = self.reason() {
+            print!(" ({msg})");
+        }
+    }
+
+    pub fn print(self, name: &str, url: &str, path: &str) {
+        if self.download() {
+            print!("[{name}] Downloading {url} to {path}");
+            self.print_reason();
+            println!("...");
+        } else {
+            print!("[{name}] Downloading of {url} to {path} skipped");
+            self.print_reason();
+            println!();
+        }
+    }
 }
 
 impl WebResource {
@@ -69,45 +119,53 @@ impl WebResource {
         let path_str = resolved_path.to_string_lossy();
 
         let exists = fs::try_exists(&resolved_path).await.unwrap_or(false);
-        let download = if !exists {
-            println!("[{name}] Downloading {url} to {path_str}...");
-            true
+        let state = if !exists {
+            ResourceState::Missing
         } else if self.config.overwrite {
-            println!("[{name}] Downloading {url} to {path_str} (overwrite of existing files was forced)...");
-            true
+            ResourceState::Forced
         } else if let Some(index) = &self.index {
             let index = index.lock().await;
             if index.is_up_to_date(path, url) {
-                println!("[{name}] Downloading of {url} to {path_str} skipped (file exists)");
-                false
+                ResourceState::Existing
             } else {
-                println!("[{name}] Downloading {url} to {path_str} (URL has changed)...");
-                true
+                ResourceState::ChangedResource
             }
         } else {
-            println!("[{name}] Downloading of {url} to {path_str} skipped (file exists)");
-            false
+            ResourceState::Existing
         };
 
-        if download {
-            if let Some(parent) = resolved_path.parent() {
-                fs::create_dir_all(parent).await?;
-            }
+        state.print(name, url, &path_str);
 
-            let mut response = reqwest::get(url).await?.error_for_status()?;
-            let mut file = fs::File::create(&resolved_path).await?;
-            while let Some(chunk) = response.chunk().await? {
-                file.write_all(&chunk).await?;
+        if state.download() {
+            let result = self.do_download(&resolved_path, url).await;
+            match &result {
+                Ok(()) => {
+                    if let Some(index) = &self.index {
+                        let mut index = index.lock().await;
+                        index.update(resource.clone());
+                    }
+                    println!("[{name}] Downloading {url} to {path_str} finished");
+                },
+                Err(error) => {
+                    println!("[{name}] Downloading {url} to {path_str} failed: {error:?}");
+                },
             }
-            file.flush().await?;
-
-            if let Some(index) = &self.index {
-                let mut index = index.lock().await;
-                index.update(resource.clone());
-            }
-            println!("[{name}] Downloading {url} to {path_str} finished");
+            result?;
         }
 
+        Ok(())
+    }
+
+    async fn do_download(&self, resolved_path: &Path, url: &String) -> Result<()> {
+        if let Some(parent) = resolved_path.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+        let mut response = reqwest::get(url).await?.error_for_status()?;
+        let mut file = fs::File::create(&resolved_path).await?;
+        while let Some(chunk) = response.chunk().await? {
+            file.write_all(&chunk).await?;
+        }
+        file.flush().await?;
         Ok(())
     }
 }
