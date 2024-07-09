@@ -44,16 +44,18 @@ async fn main() -> Result<()> {
                     println!("[{}] job finished", job.name());
                 },
                 Err(error) => {
-                    eprintln!("[{}] job failed: {error}", job.name());
+                    eprintln!("[{}] job failed: {error:?}", job.name());
                 },
             }
             result
         });
     }
 
-    while let Some(_) = set.join_next().await {
-        // we just want to join all the tasks
+    let mut success = true;
+    while let Some(result) = set.join_next().await {
+        let result = result?;
+        success &= result.is_ok();
     }
 
-    Ok(())
+    success.then_some(()).ok_or(anyhow!("at least one job failed"))
 }

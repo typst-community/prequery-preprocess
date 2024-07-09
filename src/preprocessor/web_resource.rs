@@ -94,7 +94,7 @@ impl WebResource {
                 fs::create_dir_all(parent).await?;
             }
 
-            let mut response = reqwest::get(url).await?;
+            let mut response = reqwest::get(url).await?.error_for_status()?;
             let mut file = fs::File::create(&resolved_path).await?;
             while let Some(chunk) = response.chunk().await? {
                 file.write_all(&chunk).await?;
@@ -130,8 +130,10 @@ impl Preprocessor for Arc<WebResource> {
             set.spawn(Arc::clone(self).download(Resource { path, url }));
         }
 
-        while let Some(_) = set.join_next().await {
-            // we just want to join all the tasks
+        let mut success = true;
+        while let Some(result) = set.join_next().await {
+            let result = result?;
+            success &= result.is_ok();
         }
 
         if let Some(index) = &self.index {
@@ -139,7 +141,7 @@ impl Preprocessor for Arc<WebResource> {
             index.write().await?;
         }
 
-        Ok(())
+        success.then_some(()).ok_or(anyhow!("at least one download failed"))
     }
 }
 
