@@ -12,6 +12,17 @@ test:
     # custom query config should work with some defaults
     just run-test success-custom-query-partial
 
+    # missing file should download successfully when using an index
+    @ rm -rf success-index-download/assets/ success-index-download/web-resource-index.toml
+    just run-test success-index-download "public_domain.svg finished"
+
+    # existing file should not be downloaded when using an index
+    just run-test success-index-skipped "public_domain.svg skipped (file exists)"
+
+    # existing file should be downloaded when URL changed
+    cp success-index-updated/web-resource-index-original.toml success-index-updated/web-resource-index.toml
+    just run-test success-index-updated "(URL has changed)"
+
 # runs prequeries on the specified test case; fails if that command fails, or if PATTERN is given,
 # if the pattern does not appear in the prequery output
 [private]

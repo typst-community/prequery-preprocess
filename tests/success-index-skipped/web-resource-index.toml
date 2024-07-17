@@ -1,0 +1,5 @@
+version = 1
+
+[[resource]]
+path = "assets/public_domain.svg"
+url = "https://upload.wikimedia.org/wikipedia/commons/a/af/Cc-public_domain_mark.svg"
