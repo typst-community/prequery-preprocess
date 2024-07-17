@@ -38,7 +38,7 @@ impl<'de> Deserialize<'de> for QueryData {
                     match entry {
                         Entry::Occupied(entry) => {
                             // the entry is either ok, or we error here
-                            if entry.get().as_str() != &url {
+                            if entry.get().as_str() != url {
                                 return Err(Error::invalid_value(
                                     Unexpected::Str(entry.get()),
                                     &self,

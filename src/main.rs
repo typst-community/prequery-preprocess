@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
     let jobs: Vec<_> = config
         .jobs
         .into_iter()
-        .map(|job| preprocessor::get_preprocessor(job))
+        .map(preprocessor::get_preprocessor)
         .collect();
 
     let mut errors = jobs
