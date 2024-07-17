@@ -26,7 +26,8 @@ pub struct WebResourceFactory;
 
 impl WebResourceFactory {
     fn parse_config(config: toml::Table) -> Result<Config> {
-        let config = config.try_into()
+        let config = config
+            .try_into()
             .context("invalid web-resource configuration")?;
         Ok(config)
     }

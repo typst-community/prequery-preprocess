@@ -79,7 +79,12 @@ impl WebResource {
         index: Option<Mutex<Index>>,
         query: Query,
     ) -> Self {
-        Self { name, index, config, query }
+        Self {
+            name,
+            index,
+            config,
+            query,
+        }
     }
 
     async fn populate_index(&mut self) -> Result<()> {
@@ -111,11 +116,10 @@ impl WebResource {
         let name = self.name();
         let Resource { url, path } = &resource;
 
-        let resolved_path = ARGS.resolve(path)
-            .with_context(|| {
-                let path_str = path.to_string_lossy();
-                format!("[{name}] cannot download to {path_str} because it is outside the project root")
-            })?;
+        let resolved_path = ARGS.resolve(path).with_context(|| {
+            let path_str = path.to_string_lossy();
+            format!("[{name}] cannot download to {path_str} because it is outside the project root")
+        })?;
         let path_str = resolved_path.to_string_lossy();
 
         let exists = fs::try_exists(&resolved_path).await.unwrap_or(false);
@@ -145,10 +149,10 @@ impl WebResource {
                         index.update(resource.clone());
                     }
                     println!("[{name}] Downloading {url} to {path_str} finished");
-                },
+                }
                 Err(error) => {
                     println!("[{name}] Downloading {url} to {path_str} failed: {error:?}");
-                },
+                }
             }
             result?;
         }
@@ -179,7 +183,8 @@ impl Preprocessor for Arc<WebResource> {
     async fn run(&mut self) -> Result<()> {
         Arc::get_mut(self)
             .expect("web-resource ref count should be one before starting the processing")
-            .populate_index().await?;
+            .populate_index()
+            .await?;
 
         let query_data = self.query().await?;
 
@@ -199,6 +204,8 @@ impl Preprocessor for Arc<WebResource> {
             index.write().await?;
         }
 
-        success.then_some(()).ok_or(anyhow!("at least one download failed"))
+        success
+            .then_some(())
+            .ok_or(anyhow!("at least one download failed"))
     }
 }

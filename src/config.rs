@@ -5,8 +5,8 @@ use std::fmt;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use serde::{Deserialize, Deserializer};
 use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer};
 use tokio::fs;
 use toml::Table;
 use typst_syntax::package::PackageManifest;
@@ -77,7 +77,7 @@ impl Config {
 /// Deserializes the `field` config: if given, must be either a string or `false`.
 fn deserialize_field<'de, D>(deserializer: D) -> Result<Option<Option<String>>, D::Error>
 where
-    D: Deserializer<'de>
+    D: Deserializer<'de>,
 {
     struct FieldVisitor;
 

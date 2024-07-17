@@ -3,7 +3,6 @@
 
 use anyhow::{anyhow, Result};
 
-
 use tokio::task::JoinSet;
 use typst_preprocess::args::ARGS;
 use typst_preprocess::config;
@@ -16,11 +15,14 @@ async fn main() -> Result<()> {
     let typst_toml = ARGS.resolve_typst_toml().await?;
     let config = config::Config::read(typst_toml).await?;
 
-    let jobs: Vec<_> = config.jobs.into_iter()
+    let jobs: Vec<_> = config
+        .jobs
+        .into_iter()
         .map(|job| preprocessor::get_preprocessor(job))
         .collect();
 
-    let mut errors = jobs.iter()
+    let mut errors = jobs
+        .iter()
         .filter_map(|result| result.as_ref().err())
         .peekable();
 
@@ -29,7 +31,9 @@ async fn main() -> Result<()> {
         for (name, error) in errors {
             eprintln!("[{name}] {error}");
         }
-        return Err(anyhow!("at least one preprocessor has configuration errors"));
+        return Err(anyhow!(
+            "at least one preprocessor has configuration errors"
+        ));
     }
 
     let mut set = JoinSet::new();
@@ -42,10 +46,10 @@ async fn main() -> Result<()> {
             match &result {
                 Ok(()) => {
                     println!("[{}] job finished", job.name());
-                },
+                }
                 Err(error) => {
                     eprintln!("[{}] job failed: {error:?}", job.name());
-                },
+                }
             }
             result
         });
@@ -57,5 +61,7 @@ async fn main() -> Result<()> {
         success &= result.is_ok();
     }
 
-    success.then_some(()).ok_or(anyhow!("at least one job failed"))
+    success
+        .then_some(())
+        .ok_or(anyhow!("at least one job failed"))
 }

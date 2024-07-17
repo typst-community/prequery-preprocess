@@ -18,10 +18,11 @@ pub struct Index {
     pub version: usize,
     /// The entries in the index.
     #[serde(
-        default, rename = "resource",
+        default,
+        rename = "resource",
         serialize_with = "serialize_entries",
         deserialize_with = "deserialize_entries",
-        skip_serializing_if = "BTreeMap::is_empty",
+        skip_serializing_if = "BTreeMap::is_empty"
     )]
     pub entries: BTreeMap<PathBuf, Resource>,
 }
@@ -86,7 +87,7 @@ impl Index {
 
 fn serialize_entries<S>(map: &BTreeMap<PathBuf, Resource>, serializer: S) -> Result<S::Ok, S::Error>
 where
-    S: Serializer
+    S: Serializer,
 {
     serializer.collect_seq(map.values())
 }
@@ -94,7 +95,7 @@ where
 /// Deserializes the `entries` sequence as a map.
 fn deserialize_entries<'de, D>(deserializer: D) -> Result<BTreeMap<PathBuf, Resource>, D::Error>
 where
-    D: Deserializer<'de>
+    D: Deserializer<'de>,
 {
     struct EntriesVisitor;
 
@@ -106,8 +107,9 @@ where
         }
 
         fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
-            where
-                A: de::SeqAccess<'de>, {
+        where
+            A: de::SeqAccess<'de>,
+        {
             let mut entries = BTreeMap::new();
             while let Some(elem) = seq.next_element::<Resource>()? {
                 entries.insert(elem.path.to_owned(), elem);

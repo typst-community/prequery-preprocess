@@ -40,7 +40,7 @@ pub trait PreprocessorFactory {
 impl<T> PreprocessorFactory for T
 where
     T: Send + Sync,
-    T: Fn(String, toml::Table, config::Query) -> Result<BoxedPreprocessor>
+    T: Fn(String, toml::Table, config::Query) -> Result<BoxedPreprocessor>,
 {
     fn configure(
         &self,
@@ -83,9 +83,15 @@ pub static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
 /// creating the preprocessor. The creation may fail if the kind is not recognized, or some part of
 /// the configuration was not valid for that kind.
 pub fn get_preprocessor(job: config::Job) -> Result<BoxedPreprocessor, (String, Error)> {
-    let config::Job { name, kind, query, config } = job;
+    let config::Job {
+        name,
+        kind,
+        query,
+        config,
+    } = job;
     let inner = || {
-        let preprocessor = PREPROCESSORS.get(kind.as_str())
+        let preprocessor = PREPROCESSORS
+            .get(kind.as_str())
             .with_context(|| format!("unknown job kind: {kind}"))?
             .configure(name.clone(), config, query)?;
         Ok(preprocessor)

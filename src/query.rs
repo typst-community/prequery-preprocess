@@ -62,7 +62,7 @@ impl Query {
     /// the result parsed into the desired type from JSON.
     pub async fn query<T>(&self) -> Result<T>
     where
-        T: for<'a> Deserialize<'a>
+        T: for<'a> Deserialize<'a>,
     {
         let mut cmd = self.command();
         cmd.stderr(Stdio::inherit());
@@ -113,16 +113,24 @@ impl QueryBuilder {
     /// build a [Query] using the given defaults. If the [config::Query] doesn't contain a field
     /// that also doesn't have a default value, this will fail.
     pub fn build(self, config: config::Query) -> Result<Query> {
-        let selector = config.selector
+        let selector = config
+            .selector
             .or(self.selector)
             .context("`selector` was not specified but is required")?;
-        let field = config.field
+        let field = config
+            .field
             .or(self.field)
             .context("`field` was not specified but is required")?;
-        let one = config.one
+        let one = config
+            .one
             .or(self.one)
             .context("`one` was not specified but is required")?;
         let inputs = config.inputs;
-        Ok(Query { selector, field, one, inputs })
+        Ok(Query {
+            selector,
+            field,
+            one,
+            inputs,
+        })
     }
 }

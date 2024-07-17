@@ -2,8 +2,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use serde::{Deserialize, Deserializer};
 use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer};
 
 use crate::args::ARGS;
 
@@ -32,7 +32,10 @@ impl Config {
         async fn inner<P: AsRef<Path>>(index: P) -> Result<PathBuf> {
             let mut path = ARGS.resolve_typst_toml().await?;
             let result = path.pop();
-            assert!(result, "the path should have had a final filename component");
+            assert!(
+                result,
+                "the path should have had a final filename component"
+            );
             path.push(&index);
             Ok(path)
         }
@@ -48,7 +51,7 @@ impl Config {
 /// Deserializes the `index` config: if given, must be either a boolean or string.
 fn deserialize_index<'de, D>(deserializer: D) -> Result<Option<PathBuf>, D::Error>
 where
-    D: Deserializer<'de>
+    D: Deserializer<'de>,
 {
     struct IndexVisitor;
 
