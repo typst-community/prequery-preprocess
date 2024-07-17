@@ -23,13 +23,18 @@ test:
     cp success-index-updated/web-resource-index-original.toml success-index-updated/web-resource-index.toml
     just run-test success-index-updated "(URL has changed)"
 
+    # download to outside root should fail
+    just run-test failure-outside-root "outside the project root" "1"
+
 # runs prequeries on the specified test case; fails if that command fails, or if PATTERN is given,
-# if the pattern does not appear in the prequery output
+# if the pattern does not appear in the prequery output. If EXIT_CODE is given (and not zero),
+# that exit code is expected instead of 0 (success). When both PATTERN and EXIT_CODE are given,
+# the exit code of the executed `grep` command is checked.
 [private]
-run-test NAME PATTERN="":
+run-test NAME PATTERN="" EXIT_CODE="0":
     OUTPUT="$(cargo run -q -- {{NAME}}/main.typ)"; \
     {{ if PATTERN != "" { 'echo "$OUTPUT" | grep -q "' + PATTERN + '";' } else { "" } }} \
-    if [ "$?" != "0" ]; then \
+    if [ "$?" != "{{EXIT_CODE}}" ]; then \
         echo "$OUTPUT" >&2; \
         exit 1; \
     fi
