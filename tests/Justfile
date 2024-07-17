@@ -6,10 +6,18 @@ test:
     # existing file should not be downloaded
     just run-test success-download "public_domain.svg skipped (file exists)"
 
+    # custom query config should work
+    just run-test success-custom-query
+
+    # custom query config should work with some defaults
+    just run-test success-custom-query-partial
+
+# runs prequeries on the specified test case; fails if that command fails, or if PATTERN is given,
+# if the pattern does not appear in the prequery output
 [private]
-run-test NAME PATTERN:
-    @ OUTPUT="$(cargo run -q -- {{NAME}}/main.typ)"; \
-    echo "$OUTPUT" | grep -q "{{PATTERN}}"; \
+run-test NAME PATTERN="":
+    OUTPUT="$(cargo run -q -- {{NAME}}/main.typ)"; \
+    {{ if PATTERN != "" { 'echo "$OUTPUT" | grep -q "' + PATTERN + '";' } else { "" } }} \
     if [ "$?" != "0" ]; then \
         echo "$OUTPUT" >&2; \
         exit 1; \

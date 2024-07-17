@@ -1,0 +1,12 @@
+[package]
+name = "experiment"
+version = "0.0.1"
+entrypoint = "main.typ"
+
+[[tool.prequery.jobs]]
+name = "download"
+kind = "web-resource"
+
+query.selector = "<web-resource>"
+query.field = "value"
+query.one = false
