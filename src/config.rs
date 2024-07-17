@@ -3,13 +3,13 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
-use std::str::FromStr;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Deserializer};
 use serde::de::{self, Visitor};
 use tokio::fs;
 use toml::Table;
+use typst_syntax::package::PackageManifest;
 
 /// The complete prequery config as found in the `[tool.prequery]` section in `typst.toml`. Usually,
 /// that section will be defined as multiple `[[tool.prequery.jobs]]` entries.
@@ -55,12 +55,10 @@ pub struct Query {
 impl Config {
     /// Given the contents of a `typst.toml` file, parses the `[tool.prequery]` section.
     pub fn parse(content: &str) -> Result<Self> {
-        let mut config = toml::Table::from_str(content)?;
+        let mut config: PackageManifest = toml::from_str(content)?;
         let config = config
-            .remove("tool")
-            .context("typst.toml does not contain `tool` section")?
-            .try_into::<Table>()
-            .context("typst.toml contains `tool` key, but it's not a table")?
+            .tool
+            .sections
             .remove("prequery")
             .context("typst.toml does not contain `tool.prequery` section")?
             .try_into::<Self>()
