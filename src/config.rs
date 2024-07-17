@@ -28,6 +28,7 @@ pub struct Job {
     /// Identifier of the preprocessor that should be run
     pub kind: String,
     /// The query the preprocessor needs to run
+    #[serde(default)]
     pub query: Query,
     /// Arbitrary additional configuration that is available to the job
     #[serde(flatten)]
@@ -36,7 +37,7 @@ pub struct Job {
 
 /// Query configuration. All fields here are optional, as preprocessors can define their own
 /// defaults.
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 pub struct Query {
     /// The selector to be queried, e.g. `<label>`
     pub selector: Option<String>,
