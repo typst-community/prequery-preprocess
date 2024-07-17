@@ -1,0 +1,16 @@
+test:
+    # missing file should download successfully
+    @ rm -rf success-download/assets/
+    just run-test success-download "public_domain.svg finished"
+
+    # existing file should not be downloaded
+    just run-test success-download "public_domain.svg skipped (file exists)"
+
+[private]
+run-test NAME PATTERN:
+    @ OUTPUT="$(cargo run -q -- {{NAME}}/main.typ)"; \
+    echo "$OUTPUT" | grep -q "{{PATTERN}}"; \
+    if [ "$?" != "0" ]; then \
+        echo "$OUTPUT" >&2; \
+        exit 1; \
+    fi
