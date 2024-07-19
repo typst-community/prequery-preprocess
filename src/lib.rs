@@ -4,4 +4,8 @@
 pub mod args;
 pub mod config;
 pub mod preprocessor;
+mod preprocessors;
 pub mod query;
+
+// re-export the actual preprocessors from the top level
+pub use preprocessors::*;

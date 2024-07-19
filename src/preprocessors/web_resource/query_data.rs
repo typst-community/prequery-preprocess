@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use serde::de::{self, Deserializer, Error, Unexpected, Visitor};
 use serde::Deserialize;
 
-use crate::preprocessor::web_resource::Resource;
+use super::Resource;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QueryData {

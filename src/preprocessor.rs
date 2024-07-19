@@ -1,4 +1,4 @@
-//! The actual preprocessors and management of those
+//! APIs for the implementation of preprocessors, and preprocessor management
 
 use std::collections::HashMap;
 
@@ -7,8 +7,6 @@ use async_trait::async_trait;
 use once_cell::sync::Lazy;
 
 use crate::config;
-
-pub mod web_resource;
 
 /// A configured preprocessor that can be executed for its side effect
 #[async_trait]
@@ -69,13 +67,13 @@ pub trait PreprocessorDefinition {
 type PreprocessorMap = HashMap<&'static str, &'static (dyn PreprocessorFactory + Sync)>;
 
 /// Map of preprocessors defined in this crate
-pub static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
+static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
     fn register<T: PreprocessorDefinition + 'static>(map: &mut PreprocessorMap) {
         map.insert(T::NAME, &T::configure);
     }
 
     let mut map = HashMap::new();
-    register::<web_resource::WebResourceFactory>(&mut map);
+    register::<crate::web_resource::WebResourceFactory>(&mut map);
     map
 });
 

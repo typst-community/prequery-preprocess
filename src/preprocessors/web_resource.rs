@@ -5,9 +5,8 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 
 use crate::config::Query as ConfigQuery;
+use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
-
-use super::{BoxedPreprocessor, PreprocessorDefinition};
 
 mod config;
 mod index;
