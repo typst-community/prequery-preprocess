@@ -9,7 +9,7 @@ use serde::Deserialize;
 use tokio::process::Command;
 
 use crate::args::ARGS;
-use crate::config;
+use crate::manifest;
 
 /// A query that can be run against a Typst document. This is usually configured from a
 /// [config::Query] using a [QueryBuilder].
@@ -112,7 +112,7 @@ impl QueryBuilder {
 
     /// build a [Query] using the given defaults. If the [config::Query] doesn't contain a field
     /// that also doesn't have a default value, this will fail.
-    pub fn build(self, config: config::Query) -> Result<Query> {
+    pub fn build(self, config: manifest::Query) -> Result<Query> {
         let selector = config
             .selector
             .or(self.selector)

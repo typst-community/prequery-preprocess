@@ -6,12 +6,12 @@ use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 
-use crate::config;
+use crate::manifest;
 
 /// A configured preprocessor that can be executed for its side effect
 #[async_trait]
 pub trait Preprocessor {
-    /// this preprocessor's name, which normally comes from [config::Job::name].
+    /// this preprocessor's name, which normally comes from [manifest::Job::name].
     fn name(&self) -> &str;
 
     /// Executes this preprocessor
@@ -25,42 +25,42 @@ pub type BoxedPreprocessor = Box<dyn Preprocessor + Send>;
 /// with the signature of [PreprocessorDefinition::configure] and does not usually need to be
 /// implemented manually.
 pub trait PreprocessorFactory {
-    /// Creates the preprocessor. The configuration is checked for validity, but no processing is
-    /// done yet.
+    /// Creates the preprocessor. The manifest is checked for validity, but no processing is done
+    /// yet.
     fn configure(
         &self,
         name: String,
-        config: toml::Table,
-        query: config::Query,
+        manifest: toml::Table,
+        query: manifest::Query,
     ) -> Result<BoxedPreprocessor>;
 }
 
 impl<T> PreprocessorFactory for T
 where
     T: Send + Sync,
-    T: Fn(String, toml::Table, config::Query) -> Result<BoxedPreprocessor>,
+    T: Fn(String, toml::Table, manifest::Query) -> Result<BoxedPreprocessor>,
 {
     fn configure(
         &self,
         name: String,
-        config: toml::Table,
-        query: config::Query,
+        manifest: toml::Table,
+        query: manifest::Query,
     ) -> Result<BoxedPreprocessor> {
-        self(name, config, query)
+        self(name, manifest, query)
     }
 }
 
 /// A preprocessor definition that can be put into the [PREPROCESSORS] map.
 pub trait PreprocessorDefinition {
-    /// The identifier of the preprocessor, referenced by the [config::Job::kind] field
+    /// The identifier of the preprocessor, referenced by the [manifest::Job::kind] field
     const NAME: &'static str;
 
-    /// Creates the preprocessor. The configuration is checked for validity, but no processing is
-    /// done yet.
+    /// Creates the preprocessor. The manifest is checked for validity, but no processing is done
+    /// yet.
     fn configure(
         name: String,
-        config: toml::Table,
-        query: config::Query,
+        manifest: toml::Table,
+        query: manifest::Query,
     ) -> Result<BoxedPreprocessor>;
 }
 
@@ -77,21 +77,21 @@ static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
     map
 });
 
-/// looks up the preprocessor according to [config::Job::kind] and returns the name and result of
+/// looks up the preprocessor according to [manifest::Job::kind] and returns the name and result of
 /// creating the preprocessor. The creation may fail if the kind is not recognized, or some part of
-/// the configuration was not valid for that kind.
-pub fn get_preprocessor(job: config::Job) -> Result<BoxedPreprocessor, (String, Error)> {
-    let config::Job {
+/// the manifest was not valid for that kind.
+pub fn get_preprocessor(job: manifest::Job) -> Result<BoxedPreprocessor, (String, Error)> {
+    let manifest::Job {
         name,
         kind,
         query,
-        config,
+        manifest,
     } = job;
     let inner = || {
         let preprocessor = PREPROCESSORS
             .get(kind.as_str())
             .with_context(|| format!("unknown job kind: {kind}"))?
-            .configure(name.clone(), config, query)?;
+            .configure(name.clone(), manifest, query)?;
         Ok(preprocessor)
     };
     inner().map_err(|error| (name, error))

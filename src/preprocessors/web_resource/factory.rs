@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::config;
+use crate::manifest;
 use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
 
@@ -20,7 +20,7 @@ impl WebResourceFactory {
         Ok(config)
     }
 
-    fn build_query(config: config::Query) -> Result<Query> {
+    fn build_query(config: manifest::Query) -> Result<Query> {
         let config = Query::builder()
             .default_field(Some("value".to_string()))
             .default_one(false)
@@ -40,7 +40,7 @@ impl PreprocessorDefinition for WebResourceFactory {
     fn configure(
         name: String,
         config: toml::Table,
-        query: config::Query,
+        query: manifest::Query,
     ) -> Result<BoxedPreprocessor> {
         let config = Self::parse_config(config)?;
         // index begins as None and is asynchronously populated later

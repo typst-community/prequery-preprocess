@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 
 use tokio::task::JoinSet;
 use typst_preprocess::args::ARGS;
-use typst_preprocess::config;
+use typst_preprocess::manifest::PrequeryManifest;
 use typst_preprocess::preprocessor;
 
 /// Entry point; reads the command line arguments, determines the input files and jobs to run, and
@@ -13,7 +13,7 @@ use typst_preprocess::preprocessor;
 #[tokio::main]
 async fn main() -> Result<()> {
     let typst_toml = ARGS.resolve_typst_toml().await?;
-    let config = config::Config::read(typst_toml).await?;
+    let config = PrequeryManifest::read(typst_toml).await?;
 
     let jobs: Vec<_> = config
         .jobs

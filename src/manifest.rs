@@ -11,10 +11,10 @@ use tokio::fs;
 use toml::Table;
 use typst_syntax::package::PackageManifest;
 
-/// The complete prequery config as found in the `[tool.prequery]` section in `typst.toml`. Usually,
-/// that section will be defined as multiple `[[tool.prequery.jobs]]` entries.
+/// The complete prequery manifest as found in the `[tool.prequery]` section in `typst.toml`.
+/// Usually, that section will be defined as multiple `[[tool.prequery.jobs]]` entries.
 #[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct Config {
+pub struct PrequeryManifest {
     /// The preprocessing jobs to execute
     pub jobs: Vec<Job>,
 }
@@ -30,9 +30,9 @@ pub struct Job {
     /// The query the preprocessor needs to run
     #[serde(default)]
     pub query: Query,
-    /// Arbitrary additional configuration that is available to the job
+    /// Arbitrary additional manifest for the job
     #[serde(flatten)]
-    pub config: Table,
+    pub manifest: Table,
 }
 
 /// Query configuration. All fields here are optional, as preprocessors can define their own
@@ -53,7 +53,7 @@ pub struct Query {
     pub inputs: HashMap<String, String>,
 }
 
-impl Config {
+impl PrequeryManifest {
     /// Given the contents of a `typst.toml` file, parses the `[tool.prequery]` section.
     pub fn parse(content: &str) -> Result<Self> {
         let mut config: PackageManifest = toml::from_str(content)?;
