@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
 use crate::args::ARGS;
-use crate::preprocessor::Preprocessor;
+use crate::preprocessor::{ExecutionResult, Preprocessor};
 use crate::query::Query;
 
 mod factory;
@@ -191,7 +191,7 @@ impl Preprocessor for Arc<WebResource> {
         &self.name
     }
 
-    async fn run(&mut self) -> Result<()> {
+    async fn run(&mut self) -> ExecutionResult<()> {
         Arc::get_mut(self)
             .expect("web-resource ref count should be one before starting the processing")
             .populate_index()
@@ -206,7 +206,7 @@ impl Preprocessor for Arc<WebResource> {
 
         let mut success = true;
         while let Some(result) = set.join_next().await {
-            let result = result?;
+            let result = result.context("joining an async task failed")?;
             success &= result.is_ok();
         }
 
@@ -217,6 +217,8 @@ impl Preprocessor for Arc<WebResource> {
 
         success
             .then_some(())
-            .ok_or(anyhow!("at least one download failed"))
+            .ok_or(anyhow!("at least one download failed"))?;
+
+        Ok(())
     }
 }

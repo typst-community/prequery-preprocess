@@ -2,11 +2,11 @@
 
 use std::collections::HashMap;
 
-use anyhow::{Context, Error, Result};
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
 
 use crate::manifest;
+pub use error::{ConfigError, ConfigResult, ExecutionError, ExecutionResult, ManifestError};
 
 /// A configured preprocessor that can be executed for its side effect
 #[async_trait]
@@ -15,7 +15,7 @@ pub trait Preprocessor {
     fn name(&self) -> &str;
 
     /// Executes this preprocessor
-    async fn run(&mut self) -> Result<()>;
+    async fn run(&mut self) -> ExecutionResult<()>;
 }
 
 /// A dynamically dispatched, boxed preprocessor
@@ -32,20 +32,20 @@ pub trait PreprocessorFactory {
         name: String,
         manifest: toml::Table,
         query: manifest::Query,
-    ) -> Result<BoxedPreprocessor>;
+    ) -> ConfigResult<BoxedPreprocessor>;
 }
 
 impl<T> PreprocessorFactory for T
 where
     T: Send + Sync,
-    T: Fn(String, toml::Table, manifest::Query) -> Result<BoxedPreprocessor>,
+    T: Fn(String, toml::Table, manifest::Query) -> ConfigResult<BoxedPreprocessor>,
 {
     fn configure(
         &self,
         name: String,
         manifest: toml::Table,
         query: manifest::Query,
-    ) -> Result<BoxedPreprocessor> {
+    ) -> ConfigResult<BoxedPreprocessor> {
         self(name, manifest, query)
     }
 }
@@ -61,7 +61,12 @@ pub trait PreprocessorDefinition {
         name: String,
         manifest: toml::Table,
         query: manifest::Query,
-    ) -> Result<BoxedPreprocessor>;
+    ) -> ConfigResult<BoxedPreprocessor>;
+
+    /// Can be used with [Result::map_err], particularly by [PreprocessorDefinition::configure].
+    fn config_error(error: anyhow::Error) -> ManifestError {
+        ManifestError::new(Self::NAME, error)
+    }
 }
 
 type PreprocessorMap = HashMap<&'static str, &'static (dyn PreprocessorFactory + Sync)>;
@@ -80,7 +85,7 @@ static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
 /// looks up the preprocessor according to [manifest::Job::kind] and returns the name and result of
 /// creating the preprocessor. The creation may fail if the kind is not recognized, or some part of
 /// the manifest was not valid for that kind.
-pub fn get_preprocessor(job: manifest::Job) -> Result<BoxedPreprocessor, (String, Error)> {
+pub fn get_preprocessor(job: manifest::Job) -> Result<BoxedPreprocessor, (String, ConfigError)> {
     let manifest::Job {
         name,
         kind,
@@ -88,11 +93,56 @@ pub fn get_preprocessor(job: manifest::Job) -> Result<BoxedPreprocessor, (String
         manifest,
     } = job;
     let inner = || {
-        let preprocessor = PREPROCESSORS
-            .get(kind.as_str())
-            .with_context(|| format!("unknown job kind: {kind}"))?
-            .configure(name.clone(), manifest, query)?;
+        let Some(preprocessor) = PREPROCESSORS.get(kind.as_str()) else {
+            return Err(ConfigError::Unknown(kind));
+        };
+        let preprocessor = preprocessor.configure(name.clone(), manifest, query)?;
         Ok(preprocessor)
     };
     inner().map_err(|error| (name, error))
+}
+
+mod error {
+    use thiserror::Error;
+
+    /// A problem with the preprocessor's configuration.
+    #[derive(Error, Debug)]
+    pub enum ConfigError {
+        /// The preprocessor kind is not known
+        #[error("unknown job kind: {0}")]
+        Unknown(String),
+        /// The manifest is invalid for the specific preprocessor
+        #[error("invalid job config")]
+        Manifest(#[from] ManifestError),
+    }
+
+    /// A problem with the preprocessor's configuration
+    #[derive(Error, Debug)]
+    #[error("the job of kind `{kind}` could was configured incorrectly")]
+    pub struct ManifestError {
+        kind: &'static str,
+        #[source]
+        source: anyhow::Error,
+    }
+
+    impl ManifestError {
+        /// creates a new Manifest error for a preprocessor of the given kind
+        pub fn new(kind: &'static str, source: anyhow::Error) -> Self {
+            Self { kind, source }
+        }
+    }
+
+    /// A problem during the job's execution
+    #[derive(Error, Debug)]
+    #[error("the job did not execute successfully")]
+    pub struct ExecutionError {
+        #[from]
+        source: anyhow::Error,
+    }
+
+    /// A result with a config error in it
+    pub type ConfigResult<T> = Result<T, ConfigError>;
+
+    /// A result with an execution error in it
+    pub type ExecutionResult<T> = Result<T, ExecutionError>;
 }

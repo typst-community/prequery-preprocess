@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 
 use crate::manifest;
-use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
+use crate::preprocessor::{BoxedPreprocessor, ConfigResult, PreprocessorDefinition};
 use crate::query::Query;
 
 use super::{Manifest, WebResource};
@@ -41,12 +41,16 @@ impl PreprocessorDefinition for WebResourceFactory {
         name: String,
         config: toml::Table,
         query: manifest::Query,
-    ) -> Result<BoxedPreprocessor> {
-        let config = Self::parse_config(config)?;
-        // index begins as None and is asynchronously populated later
-        let index = None;
-        let query = Self::build_query(query)?;
-        let instance = WebResource::new(name, config, index, query);
+    ) -> ConfigResult<BoxedPreprocessor> {
+        let inner = || {
+            let config = Self::parse_config(config)?;
+            // index begins as None and is asynchronously populated later
+            let index = None;
+            let query = Self::build_query(query)?;
+            let instance = WebResource::new(name, config, index, query);
+            Ok(instance)
+        };
+        let instance = inner().map_err(Self::config_error)?;
         Ok(Box::new(Arc::new(instance)))
     }
 }
