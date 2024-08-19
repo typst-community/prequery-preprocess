@@ -4,12 +4,14 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 
-use anyhow::{Context, Result};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
 use tokio::fs;
 use toml::Table;
 use typst_syntax::package::PackageManifest;
+
+pub use error::Error;
+use error::Result;
 
 /// The complete prequery manifest as found in the `[tool.prequery]` section in `typst.toml`.
 /// Usually, that section will be defined as multiple `[[tool.prequery.jobs]]` entries.
@@ -61,9 +63,9 @@ impl PrequeryManifest {
             .tool
             .sections
             .remove("prequery")
-            .context("typst.toml does not contain `tool.prequery` section")?
+            .ok_or(Error::Missing)?
             .try_into::<Self>()
-            .context("typst.toml contains `tool.prequery` key, but it's not a valid preprocessor configuration")?;
+            .map_err(Error::from)?;
         Ok(config)
     }
 
@@ -122,4 +124,27 @@ where
     }
 
     deserializer.deserialize_any(FieldVisitor)
+}
+
+mod error {
+    use std::io;
+
+    use thiserror::Error;
+
+    /// Errors that can occur when reading a prequery manifest
+    #[derive(Error, Debug)]
+    pub enum Error {
+        /// An I/O error occurred reading the typst.toml file
+        #[error("typst.toml file could not be read")]
+        Io(#[from] io::Error),
+        /// The prequery section is missing in typst.toml
+        #[error("typst.toml does not contain `tool.prequery` section")]
+        Missing,
+        /// The prequery section contains invalid config data
+        #[error("typst.toml contains `tool.prequery` key, but it's not a valid preprocessor configuration")]
+        Invalid(#[from] toml::de::Error),
+    }
+
+    /// Result type alias that defaults error to [Error].
+    pub type Result<T, E = Error> = std::result::Result<T, E>;
 }
