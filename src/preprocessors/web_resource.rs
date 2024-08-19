@@ -14,13 +14,13 @@ use crate::args::ARGS;
 use crate::preprocessor::Preprocessor;
 use crate::query::Query;
 
-mod config;
 mod factory;
 mod index;
+mod manifest;
 mod query_data;
 
-use config::*;
 use index::*;
+use manifest::*;
 use query_data::*;
 
 pub use factory::WebResourceFactory;
@@ -29,7 +29,7 @@ pub use factory::WebResourceFactory;
 #[derive(Debug)]
 pub struct WebResource {
     name: String,
-    config: Config,
+    manifest: Manifest,
     index: Option<Mutex<Index>>,
     query: Query,
 }
@@ -86,20 +86,20 @@ impl ResourceState {
 impl WebResource {
     pub(crate) fn new(
         name: String,
-        config: Config,
+        manifest: Manifest,
         index: Option<Mutex<Index>>,
         query: Query,
     ) -> Self {
         Self {
             name,
             index,
-            config,
+            manifest,
             query,
         }
     }
 
     async fn populate_index(&mut self) -> Result<()> {
-        if let Some(location) = self.config.resolve_index_path().await {
+        if let Some(location) = self.manifest.resolve_index_path().await {
             // an index is in use
             let location = location?;
             let index = if fs::try_exists(&location).await.unwrap_or(false) {
@@ -136,7 +136,7 @@ impl WebResource {
         let exists = fs::try_exists(&resolved_path).await.unwrap_or(false);
         let state = if !exists {
             ResourceState::Missing
-        } else if self.config.overwrite {
+        } else if self.manifest.overwrite {
             ResourceState::Forced
         } else if let Some(index) = &self.index {
             let index = index.lock().await;

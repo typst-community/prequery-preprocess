@@ -6,14 +6,14 @@ use crate::manifest;
 use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
 
-use super::{Config, WebResource};
+use super::{Manifest, WebResource};
 
 /// The `web-resource` preprocessor factory
 #[derive(Debug, Clone, Copy)]
 pub struct WebResourceFactory;
 
 impl WebResourceFactory {
-    fn parse_config(config: toml::Table) -> Result<Config> {
+    fn parse_config(config: toml::Table) -> Result<Manifest> {
         let config = config
             .try_into()
             .context("invalid web-resource configuration")?;

@@ -9,7 +9,7 @@ use crate::args::ARGS;
 
 /// Auxilliary configuration for the preprocessor
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct Config {
+pub struct Manifest {
     /// Always downloads and overwrites all files. It is not recommended to permanently set this
     /// option, but temporarily enabling it can make sense to check for changed resources.
     #[serde(default)]
@@ -27,7 +27,7 @@ pub struct Config {
     pub evict: bool,
 }
 
-impl Config {
+impl Manifest {
     pub async fn resolve_index_path(&self) -> Option<Result<PathBuf>> {
         async fn inner<P: AsRef<Path>>(index: P) -> Result<PathBuf> {
             let mut path = ARGS.resolve_typst_toml().await?;
