@@ -120,7 +120,8 @@ impl WebResource {
     }
 
     async fn query(&self) -> Result<QueryData> {
-        self.query.query().await
+        let data = self.query.query().await?;
+        Ok(data)
     }
 
     async fn download(self: Arc<Self>, resource: Resource) -> Result<()> {

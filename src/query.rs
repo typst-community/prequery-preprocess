@@ -4,12 +4,13 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::process::Stdio;
 
-use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 use tokio::process::Command;
 
 use crate::args::ARGS;
 use crate::manifest;
+
+pub use error::*;
 
 /// A query that can be run against a Typst document. This is usually configured from a
 /// [config::Query] using a [QueryBuilder].
@@ -64,16 +65,16 @@ impl Query {
     where
         T: for<'a> Deserialize<'a>,
     {
-        let mut cmd = self.command();
-        cmd.stderr(Stdio::inherit());
-        let output = cmd.output().await?;
+        let mut command = self.command();
+        command.stderr(Stdio::inherit());
+        let output = command.output().await?;
         if !output.status.success() {
             let status = output.status;
-            return Err(anyhow!("query command failed: {status}\n\n\t{cmd:?}"));
+            Err(Error::Failure { command, status })?;
         }
 
-        serde_json::from_slice(&output.stdout)
-            .context("query resonse was not valid JSON or did not fit the expected schema")
+        let value = serde_json::from_slice(&output.stdout)?;
+        Ok(value)
     }
 }
 
@@ -112,19 +113,16 @@ impl QueryBuilder {
 
     /// build a [Query] using the given defaults. If the [config::Query] doesn't contain a field
     /// that also doesn't have a default value, this will fail.
-    pub fn build(self, config: manifest::Query) -> Result<Query> {
+    pub fn build(self, config: manifest::Query) -> Result<Query, QueryBuilderError> {
         let selector = config
             .selector
             .or(self.selector)
-            .context("`selector` was not specified but is required")?;
+            .ok_or(QueryBuilderError::Selector)?;
         let field = config
             .field
             .or(self.field)
-            .context("`field` was not specified but is required")?;
-        let one = config
-            .one
-            .or(self.one)
-            .context("`one` was not specified but is required")?;
+            .ok_or(QueryBuilderError::Field)?;
+        let one = config.one.or(self.one).ok_or(QueryBuilderError::One)?;
         let inputs = config.inputs;
         Ok(Query {
             selector,
@@ -133,4 +131,48 @@ impl QueryBuilder {
             inputs,
         })
     }
+}
+
+mod error {
+    use std::io;
+    use std::process::ExitStatus;
+
+    use thiserror::Error;
+    use tokio::process::Command;
+
+    /// Error while executing the query
+    #[derive(Error, Debug)]
+    pub enum Error {
+        /// Reading command output failed
+        #[error("reading from the `typst query` child process failed")]
+        Io(#[from] io::Error),
+        /// The subprocess failed
+        #[error("query command failed: {status}\n\n\t{command:?}")]
+        Failure {
+            /// The command that was executed
+            command: Command,
+            /// The status code with which the command failed
+            status: ExitStatus,
+        },
+        /// The response to the query was not valid
+        #[error("query response was not valid JSON or did not fit the expected schema")]
+        Json(#[from] serde_json::Error),
+    }
+
+    /// Error in the query builder: a required ocnfiguration is missing
+    #[derive(Error, Debug)]
+    pub enum QueryBuilderError {
+        /// `selector` is missing
+        #[error("`selector` was not specified but is required")]
+        Selector,
+        /// `field` is missing
+        #[error("`field` was not specified but is required")]
+        Field,
+        /// `one` is missing
+        #[error("`one` was not specified but is required")]
+        One,
+    }
+
+    /// Result type alias that defaults error to [Error].
+    pub type Result<T, E = Error> = std::result::Result<T, E>;
 }
