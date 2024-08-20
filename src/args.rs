@@ -1,8 +1,8 @@
 //! CLI argument parsing types
 
+use std::io;
 use std::path::{self, Component, Path, PathBuf};
 
-use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use once_cell::sync::Lazy;
 use tokio::fs;
@@ -28,13 +28,10 @@ pub struct CliArguments {
 
 impl CliArguments {
     /// Returns the path of the `typst.toml` file that is closest to the input file.
-    pub async fn resolve_typst_toml(&self) -> Result<PathBuf> {
+    pub async fn resolve_typst_toml(&self) -> io::Result<PathBuf> {
         const TYPST_TOML: &str = "typst.toml";
 
-        let input = path::absolute(&self.input).with_context(|| {
-            let input_str = self.input.to_string_lossy();
-            format!("cannot resolve {TYPST_TOML} because input file {input_str} can't be resolved")
-        })?;
+        let input = path::absolute(&self.input)?;
         let mut p = input.clone();
 
         // the input path needs to refer to a file. refer to typst.toml instead
@@ -52,9 +49,8 @@ impl CliArguments {
             if !result {
                 // if there is no level up, not typst.toml was found
                 let input_str = input.to_string_lossy();
-                return Err(anyhow!(
-                    "no {TYPST_TOML} file was found in any ancestor directory of {input_str}"
-                ));
+                let msg = format!("no {TYPST_TOML} file found for input file {input_str}");
+                return Err(io::Error::new(io::ErrorKind::NotFound, msg).into());
             }
             // re-add the file name
             p.push(TYPST_TOML);

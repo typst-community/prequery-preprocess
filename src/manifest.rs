@@ -10,8 +10,7 @@ use tokio::fs;
 use toml::Table;
 use typst_syntax::package::PackageManifest;
 
-pub use error::Error;
-use error::Result;
+pub use error::*;
 
 /// The complete prequery manifest as found in the `[tool.prequery]` section in `typst.toml`.
 /// Usually, that section will be defined as multiple `[[tool.prequery.jobs]]` entries.
