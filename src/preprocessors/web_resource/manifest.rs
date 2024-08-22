@@ -1,7 +1,7 @@
 use std::fmt;
+use std::io;
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
 
@@ -28,8 +28,8 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub async fn resolve_index_path(&self) -> Option<Result<PathBuf>> {
-        async fn inner<P: AsRef<Path>>(index: P) -> Result<PathBuf> {
+    pub async fn resolve_index_path(&self) -> Option<io::Result<PathBuf>> {
+        async fn inner<P: AsRef<Path>>(index: P) -> io::Result<PathBuf> {
             let mut path = ARGS.resolve_typst_toml().await?;
             let result = path.pop();
             assert!(

@@ -149,6 +149,14 @@ mod error {
         source: anyhow::Error,
     }
 
+    impl ExecutionError {
+        /// Creates a new execution error from a specific preprocessor's error
+        pub fn new<E: Into<anyhow::Error>>(source: E) -> Self {
+            let source = source.into();
+            Self { source }
+        }
+    }
+
     /// A result with a config error in it
     pub type ConfigResult<T> = Result<T, ConfigError>;
 

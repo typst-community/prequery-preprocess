@@ -1,9 +1,9 @@
 //! The `web-resource` preprocessor
 
+use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -11,8 +11,8 @@ use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
 use crate::args::ARGS;
-use crate::preprocessor::{ExecutionResult, Preprocessor};
-use crate::query::Query;
+use crate::preprocessor::{self, Preprocessor};
+use crate::query::{self, Query};
 
 mod error;
 mod factory;
@@ -100,7 +100,7 @@ impl WebResource {
         }
     }
 
-    async fn populate_index(&mut self) -> Result<()> {
+    async fn populate_index(&mut self) -> Result<(), IndexError> {
         if let Some(location) = self.manifest.resolve_index_path().await {
             // an index is in use
             let location = location?;
@@ -121,18 +121,19 @@ impl WebResource {
         Ok(())
     }
 
-    async fn query(&self) -> Result<QueryData> {
+    async fn query(&self) -> query::Result<QueryData> {
         let data = self.query.query().await?;
         Ok(data)
     }
 
-    async fn download(self: Arc<Self>, resource: Resource) -> Result<()> {
+    async fn download(self: Arc<Self>, resource: Resource) -> Result<(), DownloadError> {
         let name = self.name();
         let Resource { url, path } = &resource;
 
-        let resolved_path = ARGS.resolve(path).with_context(|| {
+        let resolved_path = ARGS.resolve(path).ok_or_else(|| {
             let path_str = path.to_string_lossy();
-            format!("[{name}] cannot download to {path_str} because it is outside the project root")
+            let msg = format!("{path_str} is outside the project root");
+            io::Error::new(io::ErrorKind::PermissionDenied, msg)
         })?;
         let path_str = resolved_path.to_string_lossy();
 
@@ -174,7 +175,7 @@ impl WebResource {
         Ok(())
     }
 
-    async fn do_download(&self, resolved_path: &Path, url: &String) -> Result<()> {
+    async fn do_download(&self, resolved_path: &Path, url: &String) -> Result<(), DownloadError> {
         if let Some(parent) = resolved_path.parent() {
             fs::create_dir_all(parent).await?;
         }
@@ -186,15 +187,8 @@ impl WebResource {
         file.flush().await?;
         Ok(())
     }
-}
 
-#[async_trait]
-impl Preprocessor for Arc<WebResource> {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    async fn run(&mut self) -> ExecutionResult<()> {
+    async fn run_impl(self: &mut Arc<WebResource>) -> ExecutionResult<()> {
         Arc::get_mut(self)
             .expect("web-resource ref count should be one before starting the processing")
             .populate_index()
@@ -207,10 +201,13 @@ impl Preprocessor for Arc<WebResource> {
             set.spawn(Arc::clone(self).download(Resource { path, url }));
         }
 
-        let mut success = true;
+        let mut errors = Vec::new();
         while let Some(result) = set.join_next().await {
-            let result = result.context("joining an async task failed")?;
-            success &= result.is_ok();
+            match result {
+                Err(error) => errors.push(error.into()),
+                Ok(Err(error)) => errors.push(error),
+                Ok(Ok(())) => {}
+            }
         }
 
         if let Some(index) = &self.index {
@@ -218,10 +215,24 @@ impl Preprocessor for Arc<WebResource> {
             index.write().await?;
         }
 
-        success
-            .then_some(())
-            .ok_or(anyhow!("at least one download failed"))?;
+        if !errors.is_empty() {
+            return Err(error::MultipleDownloadError::new(errors).into());
+        }
 
+        Ok::<_, ExecutionError>(())
+    }
+}
+
+#[async_trait]
+impl Preprocessor for Arc<WebResource> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    async fn run(&mut self) -> preprocessor::ExecutionResult<()> {
+        self.run_impl()
+            .await
+            .map_err(preprocessor::ExecutionError::new)?;
         Ok(())
     }
 }

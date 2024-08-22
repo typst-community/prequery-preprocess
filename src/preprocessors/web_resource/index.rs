@@ -3,11 +3,12 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Result};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
+
+use super::IndexError;
 
 /// Represents an index of resources.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -46,18 +47,18 @@ impl Index {
     }
 
     /// Reads an index from a file.
-    pub async fn read(location: PathBuf) -> Result<Self> {
+    pub async fn read(location: PathBuf) -> Result<Self, IndexError> {
         let index = fs::read_to_string(&location).await?;
         let mut index: Self = toml::from_str(&index)?;
         if index.version != 1 {
-            return Err(anyhow!("index file version number was not 1"));
+            return Err(IndexError::Version(index.version));
         }
         index.location = location;
         Ok(index)
     }
 
     /// Writes the index to a file.
-    pub async fn write(&self) -> Result<()> {
+    pub async fn write(&self) -> Result<(), IndexError> {
         let mut file = fs::File::create(&self.location).await?;
         let index = toml::to_string(self)?;
         file.write_all(index.as_bytes()).await?;
