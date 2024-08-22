@@ -55,18 +55,27 @@ pub trait PreprocessorDefinition {
     /// The identifier of the preprocessor, referenced by the [manifest::Job::kind] field
     const NAME: &'static str;
 
+    /// The specific error type for this preprocessor
+    type Error: Into<anyhow::Error>;
+
     /// Creates the preprocessor. The manifest is checked for validity, but no processing is done
     /// yet.
     fn configure(
         name: String,
         manifest: toml::Table,
         query: manifest::Query,
-    ) -> ConfigResult<BoxedPreprocessor>;
-
-    /// Can be used with [Result::map_err], particularly by [PreprocessorDefinition::configure].
-    fn config_error(error: anyhow::Error) -> ManifestError {
-        ManifestError::new(Self::NAME, error)
+    ) -> ConfigResult<BoxedPreprocessor> {
+        let preprocessor = Self::configure_impl(name, manifest, query)
+            .map_err(|error| ManifestError::new(Self::NAME, error.into()))?;
+        Ok(preprocessor)
     }
+
+    /// Creates the preprocessor; implementation part.
+    fn configure_impl(
+        name: String,
+        manifest: toml::Table,
+        query: manifest::Query,
+    ) -> Result<BoxedPreprocessor, Self::Error>;
 }
 
 type PreprocessorMap = HashMap<&'static str, &'static (dyn PreprocessorFactory + Sync)>;

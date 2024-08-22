@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use crate::manifest;
-use crate::preprocessor::{self, BoxedPreprocessor, PreprocessorDefinition};
+use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
 
-use super::{ManifestResult, Manifest, QueryConfigError, WebResource};
+use super::{Manifest, ManifestError, ManifestResult, QueryConfigError, WebResource};
 
 /// The `web-resource` preprocessor factory
 #[derive(Debug, Clone, Copy)]
@@ -34,20 +34,18 @@ impl WebResourceFactory {
 impl PreprocessorDefinition for WebResourceFactory {
     const NAME: &'static str = "web-resource";
 
-    fn configure(
+    type Error = ManifestError;
+
+    fn configure_impl(
         name: String,
         config: toml::Table,
         query: manifest::Query,
-    ) -> preprocessor::ConfigResult<BoxedPreprocessor> {
-        let inner = || {
-            let config = Self::parse_config(config)?;
-            // index begins as None and is asynchronously populated later
-            let index = None;
-            let query = Self::build_query(query)?;
-            let instance = WebResource::new(name, config, index, query);
-            Ok(instance)
-        };
-        let instance = inner().map_err(Self::config_error)?;
+    ) -> ManifestResult<BoxedPreprocessor> {
+        let config = Self::parse_config(config)?;
+        // index begins as None and is asynchronously populated later
+        let index = None;
+        let query = Self::build_query(query)?;
+        let instance = WebResource::new(name, config, index, query);
         Ok(Box::new(Arc::new(instance)))
     }
 }
