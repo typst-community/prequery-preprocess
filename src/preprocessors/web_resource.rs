@@ -14,6 +14,7 @@ use crate::args::ARGS;
 use crate::preprocessor::{ExecutionResult, Preprocessor};
 use crate::query::Query;
 
+mod error;
 mod factory;
 mod index;
 mod manifest;
@@ -23,6 +24,7 @@ use index::*;
 use manifest::*;
 use query_data::*;
 
+pub use error::*;
 pub use factory::WebResourceFactory;
 
 /// The `web-resource` preprocessor

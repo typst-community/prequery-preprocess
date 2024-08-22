@@ -1,33 +1,30 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context, Result};
-
 use crate::manifest;
-use crate::preprocessor::{BoxedPreprocessor, ConfigResult, PreprocessorDefinition};
+use crate::preprocessor::{self, BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
 
-use super::{Manifest, WebResource};
+use super::{ManifestResult, Manifest, QueryConfigError, WebResource};
 
 /// The `web-resource` preprocessor factory
 #[derive(Debug, Clone, Copy)]
 pub struct WebResourceFactory;
 
 impl WebResourceFactory {
-    fn parse_config(config: toml::Table) -> Result<Manifest> {
-        let config = config
-            .try_into()
-            .context("invalid web-resource configuration")?;
+    fn parse_config(config: toml::Table) -> ManifestResult<Manifest> {
+        let config = config.try_into()?;
         Ok(config)
     }
 
-    fn build_query(config: manifest::Query) -> Result<Query> {
+    fn build_query(config: manifest::Query) -> ManifestResult<Query> {
         let config = Query::builder()
             .default_field(Some("value".to_string()))
             .default_one(false)
             .default_selector("<web-resource>".to_string())
-            .build(config)?;
+            .build(config)
+            .map_err(QueryConfigError::Builder)?;
         if config.one {
-            return Err(anyhow!("web-resource prequery does not support --one"));
+            return Err(QueryConfigError::One.into());
         }
 
         Ok(config)
@@ -41,7 +38,7 @@ impl PreprocessorDefinition for WebResourceFactory {
         name: String,
         config: toml::Table,
         query: manifest::Query,
-    ) -> ConfigResult<BoxedPreprocessor> {
+    ) -> preprocessor::ConfigResult<BoxedPreprocessor> {
         let inner = || {
             let config = Self::parse_config(config)?;
             // index begins as None and is asynchronously populated later
