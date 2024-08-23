@@ -1,6 +1,7 @@
 //! APIs for the implementation of preprocessors, and preprocessor management
 
 use std::collections::HashMap;
+use std::error::Error;
 
 use async_trait::async_trait;
 use once_cell::sync::Lazy;
@@ -56,7 +57,7 @@ pub trait PreprocessorDefinition {
     const NAME: &'static str;
 
     /// The specific error type for this preprocessor
-    type Error: Into<anyhow::Error>;
+    type Error: Error + Send + Sync + 'static;
 
     /// Creates the preprocessor. The manifest is checked for validity, but no processing is done
     /// yet.
@@ -66,7 +67,7 @@ pub trait PreprocessorDefinition {
         query: manifest::Query,
     ) -> ConfigResult<BoxedPreprocessor> {
         let preprocessor = Self::configure_impl(name, manifest, query)
-            .map_err(|error| ManifestError::new(Self::NAME, error.into()))?;
+            .map_err(|error| ManifestError::new(Self::NAME, error))?;
         Ok(preprocessor)
     }
 
@@ -112,6 +113,8 @@ pub fn get_preprocessor(job: manifest::Job) -> Result<BoxedPreprocessor, (String
 }
 
 mod error {
+    use std::error::Error;
+
     use thiserror::Error;
     use tokio::task::JoinError;
 
@@ -132,12 +135,13 @@ mod error {
     pub struct ManifestError {
         kind: &'static str,
         #[source]
-        source: anyhow::Error,
+        source: Box<dyn Error + Send + Sync + 'static>,
     }
 
     impl ManifestError {
-        /// creates a new Manifest error for a preprocessor of the given kind
-        pub fn new(kind: &'static str, source: anyhow::Error) -> Self {
+        /// Creates a new manifest error for a preprocessor of the given kind
+        pub fn new<E: Error + Send + Sync + 'static>(kind: &'static str, source: E) -> Self {
+            let source = Box::new(source);
             Self { kind, source }
         }
     }
@@ -147,7 +151,7 @@ mod error {
     pub enum ExecutionError {
         /// The job failed for preprocessor-specific reasons
         #[error("the job did not execute successfully")]
-        Execution(#[from] anyhow::Error),
+        Execution(#[source] Box<dyn Error + Send + Sync + 'static>),
         /// An error while waiting for the job to finish
         #[error("waiting for a job failed")]
         Join(#[from] JoinError),
@@ -155,8 +159,8 @@ mod error {
 
     impl ExecutionError {
         /// Creates a new execution error from a specific preprocessor's error
-        pub fn new<E: Into<anyhow::Error>>(source: E) -> Self {
-            Self::Execution(source.into())
+        pub fn new<E: Error + Send + Sync + 'static>(source: E) -> Self {
+            Self::Execution(Box::new(source))
         }
     }
 
