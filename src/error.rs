@@ -35,7 +35,11 @@ impl MultiplePreprocessorConfigError {
 
 impl fmt::Display for MultiplePreprocessorConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "at least one job's configuration failed")?;
+        write!(f, "at least one job's configuration failed:")?;
+        for (name, error) in &self.errors {
+            writeln!(f)?;
+            write!(f, "  [{name}] {error}")?;
+        }
         Ok(())
     }
 }
@@ -55,7 +59,11 @@ impl MultiplePreprocessorExecutionError {
 
 impl fmt::Display for MultiplePreprocessorExecutionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "at least one job's execution failed")?;
+        write!(f, "at least one job's execution failed:")?;
+        for error in &self.errors {
+            writeln!(f)?;
+            write!(f, "  {error}")?;
+        }
         Ok(())
     }
 }

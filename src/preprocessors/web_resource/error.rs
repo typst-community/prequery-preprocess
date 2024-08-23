@@ -74,7 +74,11 @@ impl MultipleDownloadError {
 
 impl fmt::Display for MultipleDownloadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "at least one download failed")?;
+        write!(f, "at least one download failed:")?;
+        for error in &self.errors {
+            writeln!(f)?;
+            write!(f, "  {error}")?;
+        }
         Ok(())
     }
 }
