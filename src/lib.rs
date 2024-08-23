@@ -2,6 +2,7 @@
 //! A tool for processing [prequery](https://typst.app/universe/package/prequery) data in Typst documents.
 
 pub mod args;
+pub mod error;
 pub mod manifest;
 pub mod preprocessor;
 mod preprocessors;

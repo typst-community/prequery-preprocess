@@ -1,18 +1,21 @@
 #![warn(missing_docs)]
 //! A tool for processing [prequery](https://typst.app/universe/package/prequery) data in Typst documents.
 
-use anyhow::{anyhow, Result};
-
+use itertools::{Either, Itertools};
 use tokio::task::JoinSet;
 use typst_preprocess::args::ARGS;
-use typst_preprocess::manifest::PrequeryManifest;
+use typst_preprocess::error::{self, Result};
+use typst_preprocess::manifest::{self, PrequeryManifest};
 use typst_preprocess::preprocessor;
 
 /// Entry point; reads the command line arguments, determines the input files and jobs to run, and
 /// then executes the jobs.
 #[tokio::main]
 async fn main() -> Result<()> {
-    let typst_toml = ARGS.resolve_typst_toml().await?;
+    let typst_toml = ARGS
+        .resolve_typst_toml()
+        .await
+        .map_err(manifest::Error::from)?;
     let config = PrequeryManifest::read(typst_toml).await?;
 
     let jobs: Vec<_> = config
@@ -21,25 +24,18 @@ async fn main() -> Result<()> {
         .map(preprocessor::get_preprocessor)
         .collect();
 
-    let mut errors = jobs
-        .iter()
-        .filter_map(|result| result.as_ref().err())
-        .peekable();
+    let (jobs, errors): (Vec<_>, Vec<_>) = jobs.into_iter().partition_map(|result| match result {
+        Ok(value) => Either::Left(value),
+        Err(err) => Either::Right(err),
+    });
 
-    if errors.peek().is_some() {
-        eprintln!("at least one preprocessor has configuration errors:");
-        for (name, error) in errors {
-            eprintln!("[{name}] {error}");
-        }
-        return Err(anyhow!(
-            "at least one preprocessor has configuration errors"
-        ));
+    if !errors.is_empty() {
+        return Err(error::MultiplePreprocessorConfigError::new(errors).into());
     }
 
     let mut set = JoinSet::new();
 
-    for job in jobs {
-        let mut job = job.expect("error already handled");
+    for mut job in jobs {
         set.spawn(async move {
             println!("[{}] beginning job...", job.name());
             let result = job.run().await;
@@ -55,13 +51,18 @@ async fn main() -> Result<()> {
         });
     }
 
-    let mut success = true;
+    let mut errors = Vec::new();
     while let Some(result) = set.join_next().await {
-        let result = result?;
-        success &= result.is_ok();
+        match result {
+            Err(error) => errors.push(error.into()),
+            Ok(Err(error)) => errors.push(error),
+            Ok(Ok(())) => {}
+        }
     }
 
-    success
-        .then_some(())
-        .ok_or(anyhow!("at least one job failed"))
+    if !errors.is_empty() {
+        return Err(error::MultiplePreprocessorExecutionError::new(errors).into());
+    }
+
+    Ok(())
 }

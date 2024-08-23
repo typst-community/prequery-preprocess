@@ -113,6 +113,7 @@ pub fn get_preprocessor(job: manifest::Job) -> Result<BoxedPreprocessor, (String
 
 mod error {
     use thiserror::Error;
+    use tokio::task::JoinError;
 
     /// A problem with the preprocessor's configuration.
     #[derive(Error, Debug)]
@@ -143,17 +144,19 @@ mod error {
 
     /// A problem during the job's execution
     #[derive(Error, Debug)]
-    #[error("the job did not execute successfully")]
-    pub struct ExecutionError {
-        #[from]
-        source: anyhow::Error,
+    pub enum ExecutionError {
+        /// The job failed for preprocessor-specific reasons
+        #[error("the job did not execute successfully")]
+        Execution(#[from] anyhow::Error),
+        /// An error while waiting for the job to finish
+        #[error("waiting for a job failed")]
+        Join(#[from] JoinError),
     }
 
     impl ExecutionError {
         /// Creates a new execution error from a specific preprocessor's error
         pub fn new<E: Into<anyhow::Error>>(source: E) -> Self {
-            let source = source.into();
-            Self { source }
+            Self::Execution(source.into())
         }
     }
 
