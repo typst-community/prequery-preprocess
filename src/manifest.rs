@@ -4,11 +4,15 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 
+use itertools::{Either, Itertools};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
 use tokio::fs;
 use toml::Table;
 use typst_syntax::package::PackageManifest;
+
+use crate::error::MultiplePreprocessorConfigError;
+use crate::preprocessor::{self, BoxedPreprocessor};
 
 pub use error::*;
 
@@ -73,6 +77,30 @@ impl PrequeryManifest {
         let config = fs::read_to_string(path).await?;
         let config = Self::parse(&config)?;
         Ok(config)
+    }
+
+    /// Tries to configure all preprocessors in this manifest. Fails if any preprocessors can not be
+    /// configured.
+    pub fn get_preprocessors(
+        self,
+    ) -> Result<Vec<BoxedPreprocessor>, MultiplePreprocessorConfigError> {
+        let jobs: Vec<_> = self
+            .jobs
+            .into_iter()
+            .map(preprocessor::get_preprocessor)
+            .collect();
+
+        let (jobs, errors): (Vec<_>, Vec<_>) =
+            jobs.into_iter().partition_map(|result| match result {
+                Ok(value) => Either::Left(value),
+                Err(err) => Either::Right(err),
+            });
+
+        if !errors.is_empty() {
+            return Err(MultiplePreprocessorConfigError::new(errors));
+        }
+
+        Ok(jobs)
     }
 }
 
