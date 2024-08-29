@@ -7,6 +7,8 @@ use clap::Parser;
 use once_cell::sync::Lazy;
 use tokio::fs;
 
+use crate::manifest::{self, PrequeryManifest};
+
 /// Map of preprocessors defined in this crate
 pub static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
@@ -56,6 +58,16 @@ impl CliArguments {
             p.push(TYPST_TOML);
         }
         Ok(p)
+    }
+
+    /// Reads the `typst.toml` file that is closest to the input file.
+    pub async fn read_typst_toml(&self) -> manifest::Result<PrequeryManifest> {
+        let typst_toml = ARGS
+            .resolve_typst_toml()
+            .await
+            .map_err(manifest::Error::from)?;
+        let config = PrequeryManifest::read(typst_toml).await?;
+        Ok(config)
     }
 
     /// returns the root path. This is either the explicitly given root or the directory in which

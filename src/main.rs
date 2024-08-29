@@ -5,18 +5,13 @@ use itertools::{Either, Itertools};
 use tokio::task::JoinSet;
 use typst_preprocess::args::ARGS;
 use typst_preprocess::error::{self, Result};
-use typst_preprocess::manifest::{self, PrequeryManifest};
 use typst_preprocess::preprocessor;
 
 /// Entry point; reads the command line arguments, determines the input files and jobs to run, and
 /// then executes the jobs.
 #[tokio::main]
 async fn main() -> Result<()> {
-    let typst_toml = ARGS
-        .resolve_typst_toml()
-        .await
-        .map_err(manifest::Error::from)?;
-    let config = PrequeryManifest::read(typst_toml).await?;
+    let config = ARGS.read_typst_toml().await?;
 
     let jobs: Vec<_> = config
         .jobs
