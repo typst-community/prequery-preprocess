@@ -52,7 +52,7 @@ impl CliArguments {
                 // if there is no level up, not typst.toml was found
                 let input_str = input.to_string_lossy();
                 let msg = format!("no {TYPST_TOML} file found for input file {input_str}");
-                return Err(io::Error::new(io::ErrorKind::NotFound, msg).into());
+                return Err(io::Error::new(io::ErrorKind::NotFound, msg));
             }
             // re-add the file name
             p.push(TYPST_TOML);
