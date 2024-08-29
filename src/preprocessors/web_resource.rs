@@ -8,11 +8,11 @@ use async_trait::async_trait;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
-use tokio::task::JoinSet;
 
 use crate::args::ARGS;
 use crate::preprocessor::{self, Preprocessor};
 use crate::query::{self, Query};
+use crate::utils;
 
 mod error;
 mod factory;
@@ -194,21 +194,13 @@ impl WebResource {
             .populate_index()
             .await?;
 
-        let query_data = self.query().await?;
-
-        let mut set = JoinSet::new();
-        for (path, url) in query_data.resources {
-            set.spawn(Arc::clone(self).download(Resource { path, url }));
-        }
-
-        let mut errors = Vec::new();
-        while let Some(result) = set.join_next().await {
-            match result {
-                Err(error) => errors.push(error.into()),
-                Ok(Err(error)) => errors.push(error),
-                Ok(Ok(())) => {}
-            }
-        }
+        let downloads = self
+            .query()
+            .await?
+            .resources
+            .into_iter()
+            .map(|(path, url)| Arc::clone(self).download(Resource { path, url }));
+        let errors = utils::spawn_set(downloads).await;
 
         if let Some(index) = &self.index {
             let index = index.lock().await;

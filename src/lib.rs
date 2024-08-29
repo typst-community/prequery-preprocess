@@ -8,6 +8,7 @@ pub mod manifest;
 pub mod preprocessor;
 mod preprocessors;
 pub mod query;
+mod utils;
 
 // re-export the actual preprocessors from the top level
 pub use preprocessors::*;
