@@ -39,7 +39,7 @@ impl CliArguments {
         // the input path needs to refer to a file. refer to typst.toml instead
         p.set_file_name(TYPST_TOML);
         // repeat as long as the path does not point to an accessible regular file
-        while !fs::metadata(&p).await.map_or(false, |m| m.is_file()) {
+        while !fs::metadata(&p).await.is_ok_and(|m| m.is_file()) {
             // remove the file name
             let result = p.pop();
             assert!(

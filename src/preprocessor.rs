@@ -51,7 +51,8 @@ where
     }
 }
 
-/// A preprocessor definition that can be put into the [PREPROCESSORS] map.
+#[allow(rustdoc::private_intra_doc_links)]
+/// A preprocessor definition that can be put into the (private) [PREPROCESSORS] map.
 pub trait PreprocessorDefinition {
     /// The identifier of the preprocessor, referenced by the [manifest::Job::kind] field
     const NAME: &'static str;

@@ -55,7 +55,7 @@ where
 {
     struct IndexVisitor;
 
-    impl<'de> Visitor<'de> for IndexVisitor {
+    impl Visitor<'_> for IndexVisitor {
         type Value = Option<PathBuf>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

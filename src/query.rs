@@ -13,7 +13,7 @@ use crate::manifest;
 pub use error::*;
 
 /// A query that can be run against a Typst document. This is usually configured from a
-/// [config::Query] using a [QueryBuilder].
+/// [manifest::Query] using a [QueryBuilder].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Query {
     /// The selector to be queried, e.g. `<label>`
@@ -69,6 +69,7 @@ impl Query {
         command.stderr(Stdio::inherit());
         let output = command.output().await?;
         if !output.status.success() {
+            let command = Box::new(command);
             let status = output.status;
             Err(Error::Failure { command, status })?;
         }
@@ -79,7 +80,7 @@ impl Query {
 }
 
 /// A query builder. Default values for the various configs can be set. If a setting is missing from
-/// the [config::Query], that default will be used.
+/// the [manifest::Query], that default will be used.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct QueryBuilder {
     /// The selector to be queried, e.g. `<label>`
@@ -111,7 +112,7 @@ impl QueryBuilder {
         self
     }
 
-    /// build a [Query] using the given defaults. If the [config::Query] doesn't contain a field
+    /// build a [Query] using the given defaults. If the [manifest::Query] doesn't contain a field
     /// that also doesn't have a default value, this will fail.
     pub fn build(self, config: manifest::Query) -> Result<Query, QueryBuilderError> {
         let selector = config
@@ -150,7 +151,7 @@ mod error {
         #[error("query command failed: {status}\n\n\t{command:?}")]
         Failure {
             /// The command that was executed
-            command: Command,
+            command: Box<Command>,
             /// The status code with which the command failed
             status: ExitStatus,
         },
@@ -173,6 +174,6 @@ mod error {
         One,
     }
 
-    /// Result type alias that defaults error to [Error].
+    /// Result type alias that defaults error to [enum@Error].
     pub type Result<T, E = Error> = std::result::Result<T, E>;
 }

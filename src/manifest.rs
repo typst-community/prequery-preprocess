@@ -111,7 +111,7 @@ where
 {
     struct FieldVisitor;
 
-    impl<'de> Visitor<'de> for FieldVisitor {
+    impl Visitor<'_> for FieldVisitor {
         type Value = Option<Option<String>>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -172,6 +172,6 @@ mod error {
         Invalid(#[from] toml::de::Error),
     }
 
-    /// Result type alias that defaults error to [Error].
+    /// Result type alias that defaults error to [enum@Error].
     pub type Result<T, E = Error> = std::result::Result<T, E>;
 }
