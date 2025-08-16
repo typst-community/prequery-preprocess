@@ -1,10 +1,10 @@
 test:
     # missing file should download successfully
     @ rm -rf success-download/assets/
-    just run-test success-download "public_domain.svg finished"
+    just run-test success-download "example-image.svg finished"
 
     # existing file should not be downloaded
-    just run-test success-download "public_domain.svg skipped (file exists)"
+    just run-test success-download "example-image.svg skipped (file exists)"
 
     # custom query config should work
     just run-test success-custom-query
@@ -14,10 +14,10 @@ test:
 
     # missing file should download successfully when using an index
     @ rm -rf success-index-download/assets/ success-index-download/web-resource-index.toml
-    just run-test success-index-download "public_domain.svg finished"
+    just run-test success-index-download "example-image.svg finished"
 
     # existing file should not be downloaded when using an index
-    just run-test success-index-skipped "public_domain.svg skipped (file exists)"
+    just run-test success-index-skipped "example-image.svg skipped (file exists)"
 
     # existing file should be downloaded when URL changed
     cp success-index-updated/web-resource-index-original.toml success-index-updated/web-resource-index.toml

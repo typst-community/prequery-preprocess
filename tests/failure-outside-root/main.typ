@@ -1,5 +1,5 @@
 #import "@preview/prequery:0.1.0"
 
 #prequery.image(
-  "https://upload.wikimedia.org/wikipedia/commons/a/af/Cc-public_domain_mark.svg",
-  "assets/public_domain.svg")
+  "https://raw.githubusercontent.com/SillyFreak/typst-preprocess/refs/heads/main/test-assets/example-image.svg",
+  "assets/example-image.svg")

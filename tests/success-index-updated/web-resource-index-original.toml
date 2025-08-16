@@ -1,5 +1,5 @@
 version = 1
 
 [[resource]]
-path = "assets/public_domain.svg"
+path = "assets/example-image.svg"
 url = "..."
