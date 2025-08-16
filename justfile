@@ -4,3 +4,6 @@ default:
 
 test:
     cd tests && just
+
+test-assets:
+    cd test-assets && just
