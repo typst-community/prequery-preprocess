@@ -5,7 +5,7 @@ use async_trait::async_trait;
 mod factory;
 
 pub use error::{ConfigError, ConfigResult, ExecutionError, ExecutionResult, ManifestError};
-pub use factory::{get_preprocessor, PreprocessorDefinition, PreprocessorFactory};
+pub use factory::{preprocessors, PreprocessorDefinition, PreprocessorFactory, PreprocessorMap};
 
 /// A configured preprocessor that can be executed for its side effect
 #[async_trait]

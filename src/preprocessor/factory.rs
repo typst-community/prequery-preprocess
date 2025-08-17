@@ -4,8 +4,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 
-use once_cell::sync::Lazy;
-
 use super::{BoxedPreprocessor, ConfigError, ConfigResult, ManifestError};
 use crate::manifest;
 
@@ -45,7 +43,7 @@ pub trait PreprocessorFactory {
 
 impl<T> PreprocessorFactory for T
 where
-    T: PreprocessorDefinition + Send + Sync,
+    T: PreprocessorDefinition,
 {
     fn name(&self) -> Cow<'static, str> {
         self.name()
@@ -66,7 +64,7 @@ where
 
 /// A map of preprocessor definitions that can be used to run a set of [Jobs][manifest::Job].
 pub struct PreprocessorMap {
-    map: HashMap<Cow<'static, str>, Box<dyn PreprocessorFactory + Send + Sync>>,
+    map: HashMap<Cow<'static, str>, Box<dyn PreprocessorFactory>>,
 }
 
 impl Default for PreprocessorMap {
@@ -86,7 +84,7 @@ impl PreprocessorMap {
     /// Registers a preprocessor definition with its name in the map
     pub fn register<T>(&mut self, preprocessor: T)
     where
-        T: PreprocessorDefinition + Send + Sync + 'static,
+        T: PreprocessorDefinition + 'static,
     {
         self.map.insert(preprocessor.name(), Box::new(preprocessor));
     }
@@ -113,15 +111,8 @@ impl PreprocessorMap {
 }
 
 /// Map of preprocessors defined in this crate
-static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
+pub fn preprocessors() -> PreprocessorMap {
     let mut map = PreprocessorMap::new();
     map.register(crate::web_resource::WebResourceFactory);
     map
-});
-
-/// looks up the preprocessor according to [Job::kind][manifest::Job::kind] and returns the name and
-/// result of creating the preprocessor. The creation may fail if the kind is not recognized, or
-/// some part of the manifest was not valid for that kind.
-pub fn get_preprocessor(job: manifest::Job) -> Result<BoxedPreprocessor, (String, ConfigError)> {
-    PREPROCESSORS.get(job)
 }
