@@ -64,19 +64,58 @@ where
     }
 }
 
-pub type PreprocessorMap = HashMap<Cow<'static, str>, Box<dyn PreprocessorFactory + Send + Sync>>;
+/// A map of preprocessor definitions that can be used to run a set of [Jobs][manifest::Job].
+pub struct PreprocessorMap {
+    map: HashMap<Cow<'static, str>, Box<dyn PreprocessorFactory + Send + Sync>>,
+}
 
-/// Map of preprocessors defined in this crate
-static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
-    fn register<T>(map: &mut PreprocessorMap, preprocessor: T)
+impl Default for PreprocessorMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PreprocessorMap {
+    /// Creates an empty preprocessor maps
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    /// Registers a preprocessor definition with its name in the map
+    pub fn register<T>(&mut self, preprocessor: T)
     where
         T: PreprocessorDefinition + Send + Sync + 'static,
     {
-        map.insert(preprocessor.name(), Box::new(preprocessor));
+        self.map.insert(preprocessor.name(), Box::new(preprocessor));
     }
 
-    let mut map = HashMap::new();
-    register(&mut map, crate::web_resource::WebResourceFactory);
+    /// Looks up the preprocessor according to [Job::kind][manifest::Job::kind] and returns the name
+    /// and result of creating the preprocessor. The creation may fail if the kind is not
+    /// recognized, or some part of the manifest was not valid for that kind.
+    pub fn get(&self, job: manifest::Job) -> Result<BoxedPreprocessor, (String, ConfigError)> {
+        let manifest::Job {
+            name,
+            kind,
+            query,
+            manifest,
+        } = job;
+        let inner = || {
+            let Some(preprocessor) = self.map.get(kind.as_str()) else {
+                return Err(ConfigError::Unknown(kind));
+            };
+            let preprocessor = preprocessor.configure(name.clone(), manifest, query)?;
+            Ok(preprocessor)
+        };
+        inner().map_err(|error| (name, error))
+    }
+}
+
+/// Map of preprocessors defined in this crate
+static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
+    let mut map = PreprocessorMap::new();
+    map.register(crate::web_resource::WebResourceFactory);
     map
 });
 
@@ -84,18 +123,5 @@ static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
 /// result of creating the preprocessor. The creation may fail if the kind is not recognized, or
 /// some part of the manifest was not valid for that kind.
 pub fn get_preprocessor(job: manifest::Job) -> Result<BoxedPreprocessor, (String, ConfigError)> {
-    let manifest::Job {
-        name,
-        kind,
-        query,
-        manifest,
-    } = job;
-    let inner = || {
-        let Some(preprocessor) = PREPROCESSORS.get(kind.as_str()) else {
-            return Err(ConfigError::Unknown(kind));
-        };
-        let preprocessor = preprocessor.configure(name.clone(), manifest, query)?;
-        Ok(preprocessor)
-    };
-    inner().map_err(|error| (name, error))
+    PREPROCESSORS.get(job)
 }
