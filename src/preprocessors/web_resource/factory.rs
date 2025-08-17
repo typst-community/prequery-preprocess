@@ -36,7 +36,8 @@ impl PreprocessorDefinition for WebResourceFactory {
 
     type Error = ManifestError;
 
-    fn configure_impl(
+    fn configure(
+        &self,
         name: String,
         config: toml::Table,
         query: manifest::Query,
