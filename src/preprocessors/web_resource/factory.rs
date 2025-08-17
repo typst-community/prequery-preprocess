@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::manifest;
@@ -32,9 +33,11 @@ impl WebResourceFactory {
 }
 
 impl PreprocessorDefinition for WebResourceFactory {
-    const NAME: &'static str = "web-resource";
-
     type Error = ManifestError;
+
+    fn name(&self) -> Cow<'static, str> {
+        "web-resource".into()
+    }
 
     fn configure(
         &self,

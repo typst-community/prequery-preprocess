@@ -1,5 +1,6 @@
 //! ...
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -11,11 +12,11 @@ use crate::manifest;
 #[allow(rustdoc::private_intra_doc_links)]
 /// A preprocessor definition that [Preprocessor][super::Preprocessor]s can be created from.
 pub trait PreprocessorDefinition {
-    /// The identifier of the preprocessor, referenced by the [Job::kind][manifest::Job::kind] field
-    const NAME: &'static str;
-
     /// The specific error type for this preprocessor
     type Error: Error + Send + Sync + 'static;
+
+    /// The identifier of the preprocessor, referenced by the [Job::kind][manifest::Job::kind] field
+    fn name(&self) -> Cow<'static, str>;
 
     /// Creates the preprocessor; implementation part.
     fn configure(
@@ -30,7 +31,7 @@ pub trait PreprocessorDefinition {
 /// not usually need to be implemented manually.
 pub trait PreprocessorFactory {
     /// The identifier of the preprocessor, referenced by the [Job::kind][manifest::Job::kind] field
-    fn name(&self) -> &'static str;
+    fn name(&self) -> Cow<'static, str>;
 
     /// Creates the preprocessor. The manifest is checked for validity, but no processing is done
     /// yet.
@@ -46,8 +47,8 @@ impl<T> PreprocessorFactory for T
 where
     T: PreprocessorDefinition + Send + Sync,
 {
-    fn name(&self) -> &'static str {
-        Self::NAME
+    fn name(&self) -> Cow<'static, str> {
+        self.name()
     }
 
     fn configure(
@@ -58,12 +59,12 @@ where
     ) -> ConfigResult<BoxedPreprocessor> {
         let preprocessor = self
             .configure(name, manifest, query)
-            .map_err(|error| ManifestError::new(Self::NAME, error))?;
+            .map_err(|error| ManifestError::new(self.name(), error))?;
         Ok(preprocessor)
     }
 }
 
-pub type PreprocessorMap = HashMap<&'static str, Box<dyn PreprocessorFactory + Send + Sync>>;
+pub type PreprocessorMap = HashMap<Cow<'static, str>, Box<dyn PreprocessorFactory + Send + Sync>>;
 
 /// Map of preprocessors defined in this crate
 static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
@@ -71,7 +72,7 @@ static PREPROCESSORS: Lazy<PreprocessorMap> = Lazy::new(|| {
     where
         T: PreprocessorDefinition + Send + Sync + 'static,
     {
-        map.insert(T::NAME, Box::new(preprocessor));
+        map.insert(preprocessor.name(), Box::new(preprocessor));
     }
 
     let mut map = HashMap::new();

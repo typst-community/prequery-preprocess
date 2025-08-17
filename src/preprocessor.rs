@@ -21,6 +21,7 @@ pub trait Preprocessor {
 pub type BoxedPreprocessor = Box<dyn Preprocessor + Send>;
 
 mod error {
+    use std::borrow::Cow;
     use std::error::Error;
 
     use thiserror::Error;
@@ -41,14 +42,14 @@ mod error {
     #[derive(Error, Debug)]
     #[error("the job of kind `{kind}` could was configured incorrectly")]
     pub struct ManifestError {
-        kind: &'static str,
+        kind: Cow<'static, str>,
         #[source]
         source: Box<dyn Error + Send + Sync + 'static>,
     }
 
     impl ManifestError {
         /// Creates a new manifest error for a preprocessor of the given kind
-        pub fn new<E: Error + Send + Sync + 'static>(kind: &'static str, source: E) -> Self {
+        pub fn new<E: Error + Send + Sync + 'static>(kind: Cow<'static, str>, source: E) -> Self {
             let source = Box::new(source);
             Self { kind, source }
         }
