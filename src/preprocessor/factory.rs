@@ -64,7 +64,7 @@ where
 
 /// A map of preprocessor definitions that can be used to run a set of [Jobs][manifest::Job].
 pub struct PreprocessorMap {
-    map: HashMap<Cow<'static, str>, Box<dyn PreprocessorFactory>>,
+    map: HashMap<Cow<'static, str>, Box<dyn PreprocessorFactory + Send + Sync>>,
 }
 
 impl Default for PreprocessorMap {
@@ -84,7 +84,7 @@ impl PreprocessorMap {
     /// Registers a preprocessor definition with its name in the map
     pub fn register<T>(&mut self, preprocessor: T)
     where
-        T: PreprocessorDefinition + 'static,
+        T: PreprocessorDefinition + Send + Sync + 'static,
     {
         self.map.insert(preprocessor.name(), Box::new(preprocessor));
     }

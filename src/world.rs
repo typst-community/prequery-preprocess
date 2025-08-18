@@ -1,7 +1,7 @@
 use crate::preprocessor::PreprocessorMap;
 
 /// The context for executing preprocessors.
-pub trait World {
+pub trait World: Send + Sync {
     /// Map of preprocessors existing in this World
     fn preprocessors(&self) -> &PreprocessorMap;
 }
