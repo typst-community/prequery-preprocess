@@ -2,12 +2,10 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::path::Path;
 
 use itertools::{Either, Itertools};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
-use tokio::fs;
 use toml::Table;
 use typst_syntax::package::PackageManifest;
 
@@ -70,13 +68,6 @@ impl PrequeryManifest {
             .ok_or(Error::Missing)?
             .try_into::<Self>()
             .map_err(Error::from)?;
-        Ok(config)
-    }
-
-    /// Resolves and reads the given `typst.toml` file.
-    pub async fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let config = fs::read_to_string(path).await?;
-        let config = Self::parse(&config)?;
         Ok(config)
     }
 

@@ -112,7 +112,8 @@ impl World for DefaultWorld {
             .resolve_typst_toml()
             .await
             .map_err(manifest::Error::from)?;
-        let config = PrequeryManifest::read(typst_toml).await?;
+        let config = fs::read_to_string(typst_toml).await?;
+        let config = PrequeryManifest::parse(&config)?;
         Ok(config)
     }
 
