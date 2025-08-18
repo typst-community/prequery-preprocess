@@ -9,6 +9,7 @@ pub mod preprocessor;
 mod preprocessors;
 pub mod query;
 mod utils;
+mod world;
 
 // re-export the actual preprocessors from the top level
 pub use preprocessors::*;

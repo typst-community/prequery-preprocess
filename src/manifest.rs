@@ -12,7 +12,8 @@ use toml::Table;
 use typst_syntax::package::PackageManifest;
 
 use crate::error::MultiplePreprocessorConfigError;
-use crate::preprocessor::{BoxedPreprocessor, PreprocessorMap};
+use crate::preprocessor::BoxedPreprocessor;
+use crate::world::World;
 
 pub use error::*;
 
@@ -83,12 +84,12 @@ impl PrequeryManifest {
     /// configured.
     pub fn get_preprocessors(
         self,
-        preprocessors: &PreprocessorMap,
+        world: &impl World,
     ) -> Result<Vec<BoxedPreprocessor>, MultiplePreprocessorConfigError> {
         let (jobs, errors): (Vec<_>, Vec<_>) =
             self.jobs
                 .into_iter()
-                .partition_map(|job| match preprocessors.get(job) {
+                .partition_map(|job| match world.preprocessors().get(job) {
                     Ok(value) => Either::Left(value),
                     Err(err) => Either::Right(err),
                 });

@@ -109,10 +109,3 @@ impl PreprocessorMap {
         inner().map_err(|error| (name, error))
     }
 }
-
-/// Map of preprocessors defined in this crate
-pub fn preprocessors() -> PreprocessorMap {
-    let mut map = PreprocessorMap::new();
-    map.register(crate::web_resource::WebResourceFactory);
-    map
-}

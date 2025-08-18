@@ -2,15 +2,17 @@
 
 use crate::args::ARGS;
 use crate::error::{MultiplePreprocessorExecutionError, Result};
-use crate::preprocessor::preprocessors;
 use crate::utils;
+use crate::world::DefaultWorld;
 
 /// Entry point; reads the command line arguments, determines the input files and jobs to run, and
 /// then executes the jobs.
 #[tokio::main]
 pub async fn main() -> Result<()> {
+    let world = DefaultWorld::new();
+
     let config = ARGS.read_typst_toml().await?;
-    let jobs = config.get_preprocessors(&preprocessors())?;
+    let jobs = config.get_preprocessors(&world)?;
 
     let jobs = jobs.into_iter().map(|mut job| async move {
         println!("[{}] beginning job...", job.name());
