@@ -5,14 +5,15 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use derive_more::Debug;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
-use crate::args::ARGS;
 use crate::preprocessor::{self, Preprocessor};
 use crate::query::{self, Query};
 use crate::utils;
+use crate::world::DynWorld;
 
 mod error;
 mod factory;
@@ -30,6 +31,8 @@ pub use factory::WebResourceFactory;
 /// The `web-resource` preprocessor
 #[derive(Debug)]
 pub struct WebResource {
+    #[debug(skip)]
+    world: DynWorld,
     name: String,
     manifest: Manifest,
     index: Option<Mutex<Index>>,
@@ -87,12 +90,14 @@ impl ResourceState {
 
 impl WebResource {
     pub(crate) fn new(
+        world: DynWorld,
         name: String,
         manifest: Manifest,
         index: Option<Mutex<Index>>,
         query: Query,
     ) -> Self {
         Self {
+            world,
             name,
             index,
             manifest,
@@ -101,7 +106,7 @@ impl WebResource {
     }
 
     async fn populate_index(&mut self) -> Result<(), IndexError> {
-        if let Some(location) = self.manifest.resolve_index_path().await {
+        if let Some(location) = self.manifest.resolve_index_path(&self.world).await {
             // an index is in use
             let location = location?;
             let index = if fs::try_exists(&location).await.unwrap_or(false) {
@@ -130,7 +135,7 @@ impl WebResource {
         let name = self.name();
         let Resource { url, path } = &resource;
 
-        let resolved_path = ARGS.resolve(path).ok_or_else(|| {
+        let resolved_path = self.world.resolve(path).ok_or_else(|| {
             let path_str = path.to_string_lossy();
             let msg = format!("{path_str} is outside the project root");
             io::Error::new(io::ErrorKind::PermissionDenied, msg)

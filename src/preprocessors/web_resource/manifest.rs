@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
 
-use crate::args::ARGS;
+use crate::world::DynWorld;
 
 /// Auxilliary configuration for the preprocessor
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -28,9 +28,9 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub async fn resolve_index_path(&self) -> Option<io::Result<PathBuf>> {
-        async fn inner<P: AsRef<Path>>(index: P) -> io::Result<PathBuf> {
-            let mut path = ARGS.resolve_typst_toml().await?;
+    pub async fn resolve_index_path(&self, world: &DynWorld) -> Option<io::Result<PathBuf>> {
+        async fn inner<P: AsRef<Path>>(index: P, world: &DynWorld) -> io::Result<PathBuf> {
+            let mut path = world.resolve_typst_toml().await?;
             let result = path.pop();
             assert!(
                 result,
@@ -41,7 +41,7 @@ impl Manifest {
         }
 
         if let Some(index) = &self.index {
-            Some(inner(index).await)
+            Some(inner(index, world).await)
         } else {
             None
         }

@@ -42,7 +42,7 @@ impl PreprocessorDefinition for WebResourceFactory {
 
     fn configure(
         &self,
-        _world: &DynWorld,
+        world: &DynWorld,
         name: String,
         config: toml::Table,
         query: manifest::Query,
@@ -51,7 +51,7 @@ impl PreprocessorDefinition for WebResourceFactory {
         // index begins as None and is asynchronously populated later
         let index = None;
         let query = Self::build_query(query)?;
-        let instance = WebResource::new(name, config, index, query);
+        let instance = WebResource::new(world.clone(), name, config, index, query);
         Ok(Box::new(Arc::new(instance)))
     }
 }

@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use crate::args::ARGS;
 use crate::error::{MultiplePreprocessorExecutionError, Result};
 use crate::utils;
 use crate::world::{DefaultWorld, DynWorld};
@@ -13,7 +12,7 @@ use crate::world::{DefaultWorld, DynWorld};
 pub async fn main() -> Result<()> {
     let world: DynWorld = Arc::new(DefaultWorld::new());
 
-    let config = ARGS.read_typst_toml().await?;
+    let config = world.read_typst_toml().await?;
     let jobs = config.get_preprocessors(&world)?;
 
     let jobs = jobs.into_iter().map(|mut job| async move {
