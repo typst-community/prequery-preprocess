@@ -13,7 +13,7 @@ use typst_syntax::package::PackageManifest;
 
 use crate::error::MultiplePreprocessorConfigError;
 use crate::preprocessor::BoxedPreprocessor;
-use crate::world::World;
+use crate::world::DynWorld;
 
 pub use error::*;
 
@@ -84,15 +84,15 @@ impl PrequeryManifest {
     /// configured.
     pub fn get_preprocessors(
         self,
-        world: &impl World,
+        world: &DynWorld,
     ) -> Result<Vec<BoxedPreprocessor>, MultiplePreprocessorConfigError> {
         let (jobs, errors): (Vec<_>, Vec<_>) =
-            self.jobs
-                .into_iter()
-                .partition_map(|job| match world.preprocessors().get(job) {
+            self.jobs.into_iter().partition_map(|job| {
+                match world.preprocessors().get(world, job) {
                     Ok(value) => Either::Left(value),
                     Err(err) => Either::Right(err),
-                });
+                }
+            });
 
         if !errors.is_empty() {
             return Err(MultiplePreprocessorConfigError::new(errors));

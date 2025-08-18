@@ -4,6 +4,7 @@ use std::sync::Arc;
 use crate::manifest;
 use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
+use crate::world::DynWorld;
 
 use super::{Manifest, ManifestError, ManifestResult, QueryConfigError, WebResource};
 
@@ -41,6 +42,7 @@ impl PreprocessorDefinition for WebResourceFactory {
 
     fn configure(
         &self,
+        _world: &DynWorld,
         name: String,
         config: toml::Table,
         query: manifest::Query,

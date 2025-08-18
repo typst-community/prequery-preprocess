@@ -6,6 +6,7 @@ use std::error::Error;
 
 use super::{BoxedPreprocessor, ConfigError, ConfigResult, ManifestError};
 use crate::manifest;
+use crate::world::DynWorld;
 
 #[allow(rustdoc::private_intra_doc_links)]
 /// A preprocessor definition that [Preprocessor][super::Preprocessor]s can be created from.
@@ -19,6 +20,7 @@ pub trait PreprocessorDefinition {
     /// Creates the preprocessor; implementation part.
     fn configure(
         &self,
+        world: &DynWorld,
         name: String,
         manifest: toml::Table,
         query: manifest::Query,
@@ -35,6 +37,7 @@ pub trait PreprocessorFactory {
     /// yet.
     fn configure(
         &self,
+        world: &DynWorld,
         name: String,
         manifest: toml::Table,
         query: manifest::Query,
@@ -51,12 +54,13 @@ where
 
     fn configure(
         &self,
+        world: &DynWorld,
         name: String,
         manifest: toml::Table,
         query: manifest::Query,
     ) -> ConfigResult<BoxedPreprocessor> {
         let preprocessor = self
-            .configure(name, manifest, query)
+            .configure(world, name, manifest, query)
             .map_err(|error| ManifestError::new(self.name(), error))?;
         Ok(preprocessor)
     }
@@ -92,7 +96,11 @@ impl PreprocessorMap {
     /// Looks up the preprocessor according to [Job::kind][manifest::Job::kind] and returns the name
     /// and result of creating the preprocessor. The creation may fail if the kind is not
     /// recognized, or some part of the manifest was not valid for that kind.
-    pub fn get(&self, job: manifest::Job) -> Result<BoxedPreprocessor, (String, ConfigError)> {
+    pub fn get(
+        &self,
+        world: &DynWorld,
+        job: manifest::Job,
+    ) -> Result<BoxedPreprocessor, (String, ConfigError)> {
         let manifest::Job {
             name,
             kind,
@@ -103,7 +111,7 @@ impl PreprocessorMap {
             let Some(preprocessor) = self.map.get(kind.as_str()) else {
                 return Err(ConfigError::Unknown(kind));
             };
-            let preprocessor = preprocessor.configure(name.clone(), manifest, query)?;
+            let preprocessor = preprocessor.configure(world, name.clone(), manifest, query)?;
             Ok(preprocessor)
         };
         inner().map_err(|error| (name, error))

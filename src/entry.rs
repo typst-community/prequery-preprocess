@@ -1,15 +1,17 @@
 //! Contains the executable's entry point
 
+use std::sync::Arc;
+
 use crate::args::ARGS;
 use crate::error::{MultiplePreprocessorExecutionError, Result};
 use crate::utils;
-use crate::world::DefaultWorld;
+use crate::world::{DefaultWorld, DynWorld};
 
 /// Entry point; reads the command line arguments, determines the input files and jobs to run, and
 /// then executes the jobs.
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    let world = DefaultWorld::new();
+    let world: DynWorld = Arc::new(DefaultWorld::new());
 
     let config = ARGS.read_typst_toml().await?;
     let jobs = config.get_preprocessors(&world)?;
