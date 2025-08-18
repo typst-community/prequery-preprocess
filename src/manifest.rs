@@ -104,7 +104,7 @@ where
         type Value = Option<Option<String>>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("`false` or a string`")
+            formatter.write_str("`false` or a string")
         }
 
         fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
