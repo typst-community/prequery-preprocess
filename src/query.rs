@@ -1,14 +1,11 @@
 //! Executing `typst query` commands
 
 use std::collections::HashMap;
-use std::fmt::Write;
-use std::process::Stdio;
 
 use serde::Deserialize;
-use tokio::process::Command;
 
-use crate::args::ARGS;
 use crate::manifest;
+use crate::world::World;
 
 pub use error::*;
 
@@ -34,47 +31,15 @@ impl Query {
         QueryBuilder::default()
     }
 
-    /// Builds the `typst query` command line for executing this command.
-    pub fn command(&self) -> Command {
-        let mut cmd = Command::new(&ARGS.typst);
-        cmd.arg("query");
-        if let Some(root) = &ARGS.root {
-            cmd.arg("--root").arg(root);
-        }
-        if let Some(field) = &self.field {
-            cmd.arg("--field").arg(field);
-        }
-        if self.one {
-            cmd.arg("--one");
-        }
-        let mut input = String::new();
-        for (key, value) in &self.inputs {
-            input.clear();
-            write!(&mut input, "{key}={value}").expect("writing to a string failed");
-            cmd.arg("--input").arg(&input);
-        }
-        cmd.arg("--input").arg("prequery-fallback=true");
-        cmd.arg(&ARGS.input).arg(&self.selector);
-
-        cmd
-    }
-
     /// Executes the query. This builds the necessary command line, runs the command, and returns
     /// the result parsed into the desired type from JSON.
-    pub async fn query<T>(&self) -> Result<T>
+    pub async fn execute<T, W>(&self, world: &W) -> Result<T>
     where
         T: for<'a> Deserialize<'a>,
+        W: World + ?Sized,
     {
-        let mut command = self.command();
-        command.stderr(Stdio::inherit());
-        let output = command.output().await?;
-        if !output.status.success() {
-            let command = Box::new(command);
-            let status = output.status;
-            Err(Error::Failure { command, status })?;
-        }
-
-        let value = serde_json::from_slice(&output.stdout)?;
+        let output = world.query(self).await?;
+        let value = serde_json::from_slice(&output)?;
         Ok(value)
     }
 }

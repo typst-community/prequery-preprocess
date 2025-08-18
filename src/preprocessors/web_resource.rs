@@ -127,7 +127,7 @@ impl WebResource {
     }
 
     async fn query(&self) -> query::Result<QueryData> {
-        let data = self.query.query().await?;
+        let data = self.query.execute(self.world.as_ref()).await?;
         Ok(data)
     }
 

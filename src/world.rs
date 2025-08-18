@@ -1,13 +1,17 @@
+use std::fmt::Write;
 use std::io;
 use std::path::{self, Component, Path, PathBuf};
+use std::process::Stdio;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::fs;
+use tokio::process::Command;
 
 use crate::args::{CliArguments, ARGS};
 use crate::manifest::{self, PrequeryManifest};
 use crate::preprocessor::PreprocessorMap;
+use crate::query::{self, Query};
 
 /// The context for executing preprocessors.
 #[async_trait]
@@ -35,6 +39,10 @@ pub trait World: Send + Sync {
     /// Returns `None` if the path lexically escapes the root. The path might
     /// still escape through symlinks.
     fn resolve(&self, path: &Path) -> Option<PathBuf>;
+
+    /// Executes the query. This builds the necessary command line, runs the command, and returns
+    /// the command's stdout.
+    async fn query(&self, query: &Query) -> query::Result<Vec<u8>>;
 }
 
 pub type DynWorld = Arc<dyn World>;
@@ -140,5 +148,37 @@ impl World for DefaultWorld {
             }
         }
         Some(out)
+    }
+
+    async fn query(&self, query: &Query) -> query::Result<Vec<u8>> {
+        let mut cmd = Command::new(&self.arguments().typst);
+        cmd.arg("query");
+        if let Some(root) = &self.arguments().root {
+            cmd.arg("--root").arg(root);
+        }
+        if let Some(field) = &query.field {
+            cmd.arg("--field").arg(field);
+        }
+        if query.one {
+            cmd.arg("--one");
+        }
+        let mut input = String::new();
+        for (key, value) in &query.inputs {
+            input.clear();
+            write!(&mut input, "{key}={value}").expect("writing to a string failed");
+            cmd.arg("--input").arg(&input);
+        }
+        cmd.arg("--input").arg("prequery-fallback=true");
+        cmd.arg(&self.arguments().input).arg(&query.selector);
+
+        cmd.stderr(Stdio::inherit());
+        let output = cmd.output().await?;
+        if !output.status.success() {
+            let command = Box::new(cmd);
+            let status = output.status;
+            Err(query::Error::Failure { command, status })?;
+        }
+
+        Ok(output.stdout)
     }
 }
