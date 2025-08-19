@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::manifest;
 use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
-use crate::world::DynWorld;
+use crate::world::World;
 
 use super::{Manifest, ManifestError, ManifestResult, QueryConfigError, WebResource};
 
@@ -33,7 +33,7 @@ impl WebResourceFactory {
     }
 }
 
-impl PreprocessorDefinition for WebResourceFactory {
+impl<W: World> PreprocessorDefinition<W> for WebResourceFactory {
     type Error = ManifestError;
 
     fn name(&self) -> Cow<'static, str> {
@@ -42,11 +42,11 @@ impl PreprocessorDefinition for WebResourceFactory {
 
     fn configure(
         &self,
-        world: &DynWorld,
+        world: &Arc<W>,
         name: String,
         config: toml::Table,
         query: manifest::Query,
-    ) -> ManifestResult<BoxedPreprocessor> {
+    ) -> ManifestResult<BoxedPreprocessor<W>> {
         let config = Self::parse_config(config)?;
         // index begins as None and is asynchronously populated later
         let index = None;

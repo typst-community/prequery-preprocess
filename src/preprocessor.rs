@@ -7,9 +7,11 @@ mod factory;
 pub use error::{ConfigError, ConfigResult, ExecutionError, ExecutionResult, ManifestError};
 pub use factory::{PreprocessorDefinition, PreprocessorFactory, PreprocessorMap};
 
+use crate::world::World;
+
 /// A configured preprocessor that can be executed for its side effect
 #[async_trait]
-pub trait Preprocessor {
+pub trait Preprocessor<W: World> {
     /// this preprocessor's name, which normally comes from [Job::name][crate::manifest::Job::name].
     fn name(&self) -> &str;
 
@@ -18,7 +20,7 @@ pub trait Preprocessor {
 }
 
 /// A dynamically dispatched, boxed preprocessor
-pub type BoxedPreprocessor = Box<dyn Preprocessor + Send>;
+pub type BoxedPreprocessor<W> = Box<dyn Preprocessor<W> + Send>;
 
 mod error {
     use std::borrow::Cow;

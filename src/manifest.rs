@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::Arc;
 
 use itertools::{Either, Itertools};
 use serde::de::{self, Visitor};
@@ -11,7 +12,7 @@ use typst_syntax::package::PackageManifest;
 
 use crate::error::MultiplePreprocessorConfigError;
 use crate::preprocessor::BoxedPreprocessor;
-use crate::world::DynWorld;
+use crate::world::World;
 
 pub use error::*;
 
@@ -73,10 +74,10 @@ impl PrequeryManifest {
 
     /// Tries to configure all preprocessors in this manifest. Fails if any preprocessors can not be
     /// configured.
-    pub fn get_preprocessors(
+    pub fn get_preprocessors<W: World>(
         self,
-        world: &DynWorld,
-    ) -> Result<Vec<BoxedPreprocessor>, MultiplePreprocessorConfigError> {
+        world: &Arc<W>,
+    ) -> Result<Vec<BoxedPreprocessor<W>>, MultiplePreprocessorConfigError> {
         let (jobs, errors): (Vec<_>, Vec<_>) =
             self.jobs.into_iter().partition_map(|job| {
                 match world.preprocessors().get(world, job) {

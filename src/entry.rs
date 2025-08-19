@@ -4,13 +4,13 @@ use std::sync::Arc;
 
 use crate::error::{MultiplePreprocessorExecutionError, Result};
 use crate::utils;
-use crate::world::{DefaultWorld, DynWorld};
+use crate::world::{DefaultWorld, World};
 
 /// Entry point; reads the command line arguments, determines the input files and jobs to run, and
 /// then executes the jobs.
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    let world: DynWorld = Arc::new(DefaultWorld::new());
+    let world = Arc::new(DefaultWorld::new());
 
     let config = world.read_typst_toml().await?;
     let jobs = config.get_preprocessors(&world)?;

@@ -2,7 +2,6 @@ use std::fmt::Write;
 use std::io;
 use std::path::{self, Component, Path, PathBuf};
 use std::process::Stdio;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::fs;
@@ -15,9 +14,9 @@ use crate::query::{self, Query};
 
 /// The context for executing preprocessors.
 #[async_trait]
-pub trait World: Send + Sync {
+pub trait World: Send + Sync + 'static {
     /// Map of preprocessors existing in this World
-    fn preprocessors(&self) -> &PreprocessorMap;
+    fn preprocessors(&self) -> &PreprocessorMap<Self>;
 
     /// The arguments given to the invocation
     fn arguments(&self) -> &CliArguments;
@@ -45,11 +44,9 @@ pub trait World: Send + Sync {
     async fn query(&self, query: &Query) -> query::Result<Vec<u8>>;
 }
 
-pub type DynWorld = Arc<dyn World>;
-
 /// The default context, accessing the real web, filesystem, etc.
 pub struct DefaultWorld {
-    preprocessors: PreprocessorMap,
+    preprocessors: PreprocessorMap<Self>,
 }
 
 impl Default for DefaultWorld {
@@ -69,7 +66,7 @@ impl DefaultWorld {
 
 #[async_trait]
 impl World for DefaultWorld {
-    fn preprocessors(&self) -> &PreprocessorMap {
+    fn preprocessors(&self) -> &PreprocessorMap<Self> {
         &self.preprocessors
     }
 

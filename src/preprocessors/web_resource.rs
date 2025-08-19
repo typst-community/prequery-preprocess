@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 use crate::preprocessor::{self, Preprocessor};
 use crate::query::{self, Query};
 use crate::utils;
-use crate::world::DynWorld;
+use crate::world::World;
 
 mod error;
 mod factory;
@@ -30,9 +30,9 @@ pub use factory::WebResourceFactory;
 
 /// The `web-resource` preprocessor
 #[derive(Debug)]
-pub struct WebResource {
+pub struct WebResource<W: World> {
     #[debug(skip)]
-    world: DynWorld,
+    world: Arc<W>,
     name: String,
     manifest: Manifest,
     index: Option<Mutex<Index>>,
@@ -88,9 +88,9 @@ impl ResourceState {
     }
 }
 
-impl WebResource {
+impl<W: World> WebResource<W> {
     pub(crate) fn new(
-        world: DynWorld,
+        world: Arc<W>,
         name: String,
         manifest: Manifest,
         index: Option<Mutex<Index>>,
@@ -106,7 +106,7 @@ impl WebResource {
     }
 
     async fn populate_index(&mut self) -> Result<(), IndexError> {
-        if let Some(location) = self.manifest.resolve_index_path(&self.world).await {
+        if let Some(location) = self.manifest.resolve_index_path(self.world.as_ref()).await {
             // an index is in use
             let location = location?;
             let index = if fs::try_exists(&location).await.unwrap_or(false) {
@@ -193,7 +193,7 @@ impl WebResource {
         Ok(())
     }
 
-    async fn run_impl(self: &mut Arc<WebResource>) -> ExecutionResult<()> {
+    async fn run_impl(self: &mut Arc<Self>) -> ExecutionResult<()> {
         Arc::get_mut(self)
             .expect("web-resource ref count should be one before starting the processing")
             .populate_index()
@@ -221,7 +221,7 @@ impl WebResource {
 }
 
 #[async_trait]
-impl Preprocessor for Arc<WebResource> {
+impl<W: World> Preprocessor<W> for Arc<WebResource<W>> {
     fn name(&self) -> &str {
         &self.name
     }
