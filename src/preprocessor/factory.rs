@@ -10,6 +10,7 @@ use crate::manifest;
 use crate::world::World;
 
 /// A preprocessor definition that [Preprocessor][super::Preprocessor]s can be created from.
+#[cfg_attr(feature = "test", mockall::automock(type Error = crate::Never;))]
 pub trait PreprocessorDefinition<W: World> {
     /// The specific error type for this preprocessor
     type Error: Error + Send + Sync + 'static;

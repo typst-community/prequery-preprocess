@@ -1,3 +1,7 @@
+//! Abstracts an execution environment preprocessors can run in.
+//! The world mediates access to the file system, the network, and more high-level resources
+//! such as the project manifest
+
 use std::fmt::Write;
 use std::io;
 use std::path::{self, Component, Path, PathBuf};
@@ -13,6 +17,7 @@ use crate::preprocessor::PreprocessorMap;
 use crate::query::{self, Query};
 
 /// The context for executing preprocessors.
+#[cfg_attr(feature = "test", mockall::automock)]
 #[async_trait]
 pub trait World: Send + Sync + 'static {
     /// Map of preprocessors existing in this World

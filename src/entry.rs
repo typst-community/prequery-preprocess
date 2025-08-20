@@ -10,8 +10,12 @@ use crate::world::{DefaultWorld, World};
 /// then executes the jobs.
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    let world = Arc::new(DefaultWorld::new());
+    run(DefaultWorld::new()).await
+}
 
+/// Entry point; takes a World and executes preprocessors according to the contained data.
+pub async fn run(world: impl World) -> Result<()> {
+    let world = Arc::new(world);
     let config = world.read_typst_toml().await?;
     let jobs = config.get_preprocessors(&world)?;
 

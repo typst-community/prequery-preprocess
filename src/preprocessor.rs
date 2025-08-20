@@ -5,11 +5,14 @@ use async_trait::async_trait;
 mod factory;
 
 pub use error::{ConfigError, ConfigResult, ExecutionError, ExecutionResult, ManifestError};
+#[cfg(feature = "test")]
+pub use factory::MockPreprocessorDefinition;
 pub use factory::{PreprocessorDefinition, PreprocessorFactory, PreprocessorMap};
 
 use crate::world::World;
 
 /// A configured preprocessor that can be executed for its side effect
+#[cfg_attr(feature = "test", mockall::automock)]
 #[async_trait]
 pub trait Preprocessor<W: World> {
     /// this preprocessor's name, which normally comes from [Job::name][crate::manifest::Job::name].
