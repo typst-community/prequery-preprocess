@@ -9,7 +9,6 @@ use super::{BoxedPreprocessor, ConfigError, ConfigResult, ManifestError};
 use crate::manifest;
 use crate::world::World;
 
-#[allow(rustdoc::private_intra_doc_links)]
 /// A preprocessor definition that [Preprocessor][super::Preprocessor]s can be created from.
 pub trait PreprocessorDefinition<W: World> {
     /// The specific error type for this preprocessor
