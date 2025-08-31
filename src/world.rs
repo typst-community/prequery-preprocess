@@ -8,10 +8,11 @@ use std::path::{self, Component, Path, PathBuf};
 use std::process::Stdio;
 
 use async_trait::async_trait;
+use clap::Parser;
 use tokio::fs;
 use tokio::process::Command;
 
-use crate::args::{CliArguments, ARGS};
+use crate::args::CliArguments;
 use crate::manifest::{self, PrequeryManifest};
 use crate::preprocessor::PreprocessorMap;
 use crate::query::{self, Query};
@@ -88,6 +89,7 @@ impl<T: World> WorldExt for T {}
 /// The default context, accessing the real web, filesystem, etc.
 pub struct DefaultWorld {
     preprocessors: PreprocessorMap<Self>,
+    arguments: CliArguments,
 }
 
 impl Default for DefaultWorld {
@@ -101,7 +103,11 @@ impl DefaultWorld {
     pub fn new() -> Self {
         let mut preprocessors = PreprocessorMap::default();
         preprocessors.register(crate::web_resource::WebResourceFactory::default());
-        Self { preprocessors }
+        let arguments = CliArguments::parse();
+        Self {
+            preprocessors,
+            arguments,
+        }
     }
 }
 
@@ -112,7 +118,7 @@ impl World for DefaultWorld {
     }
 
     fn arguments(&self) -> &CliArguments {
-        &ARGS
+        &self.arguments
     }
 
     async fn resolve_typst_toml(&self) -> io::Result<PathBuf> {

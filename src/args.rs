@@ -3,10 +3,6 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use once_cell::sync::Lazy;
-
-/// Map of preprocessors defined in this crate
-pub static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
 
 /// prequery-preprocess args
 #[derive(Parser, Debug, Clone, PartialEq, Eq)]
