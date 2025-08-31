@@ -10,7 +10,8 @@ use typst_preprocess::error::Result;
 use typst_preprocess::manifest::PrequeryManifest;
 use typst_preprocess::preprocessor::PreprocessorMap;
 use typst_preprocess::query::Query;
-use typst_preprocess::web_resource::{Index, MockWorld, MockWorld_NewContext, WebResourceFactory};
+use typst_preprocess::web_resource::index::{Index, Resource};
+use typst_preprocess::web_resource::{MockWorld, MockWorld_NewContext, WebResourceFactory};
 use typst_preprocess::world::MockWorld as MainMockWorld;
 
 struct WebResourceTest {
@@ -255,6 +256,265 @@ async fn run_web_resource_no_index_existing_forced() -> Result<()> {
             // no index specified in the manifest
             world.expect_read_index().never();
             world.expect_write_index().never();
+
+            world
+                .expect_resource_exists()
+                .once()
+                .with(eq(PathBuf::from("assets/example.png")))
+                .return_const(true);
+            world
+                .expect_download()
+                .once()
+                .with(
+                    eq(PathBuf::from("assets/example.png")),
+                    eq("https://example.com/example.png"),
+                )
+                .returning(|_, _| Ok(()));
+        },
+    )
+    .run()
+    .await
+}
+
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_with_index_missing() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        index = true
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/example.png", "path": "assets/example.png"}]"#,
+        |world| {
+            world
+                .expect_read_index()
+                .once()
+                .with(eq(PathBuf::from("web-resource-index.toml")))
+                .returning(|location| Ok(Index::new(location)));
+            world
+                .expect_write_index()
+                .once()
+                .with(eq({
+                    let mut index = Index::new(PathBuf::from("web-resource-index.toml"));
+                    index.update(Resource {
+                        path: PathBuf::from("assets/example.png"),
+                        url: "https://example.com/example.png".to_string(),
+                    });
+                    index
+                }))
+                .returning(|_| Ok(()));
+
+            world
+                .expect_resource_exists()
+                .once()
+                .with(eq(PathBuf::from("assets/example.png")))
+                .return_const(false);
+            world
+                .expect_download()
+                .once()
+                .with(
+                    eq(PathBuf::from("assets/example.png")),
+                    eq("https://example.com/example.png"),
+                )
+                .returning(|_, _| Ok(()));
+        },
+    )
+    .run()
+    .await
+}
+
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_with_index_existing() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        index = true
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/example.png", "path": "assets/example.png"}]"#,
+        |world| {
+            world
+                .expect_read_index()
+                .once()
+                .with(eq(PathBuf::from("web-resource-index.toml")))
+                .returning(|location| {
+                    let mut index = Index::new(location);
+                    index.update(Resource {
+                        path: PathBuf::from("assets/example.png"),
+                        url: "https://example.com/example.png".to_string(),
+                    });
+                    Ok(index)
+                });
+            world
+                .expect_write_index()
+                .once()
+                .with(eq({
+                    let mut index = Index::new(PathBuf::from("web-resource-index.toml"));
+                    index.update(Resource {
+                        path: PathBuf::from("assets/example.png"),
+                        url: "https://example.com/example.png".to_string(),
+                    });
+                    index
+                }))
+                .returning(|_| Ok(()));
+
+            world
+                .expect_resource_exists()
+                .once()
+                .with(eq(PathBuf::from("assets/example.png")))
+                .return_const(true);
+            world.expect_download().never();
+        },
+    )
+    .run()
+    .await
+}
+
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_with_index_existing_forced() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        index = true
+        overwrite = true
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/example.png", "path": "assets/example.png"}]"#,
+        |world| {
+            world
+                .expect_read_index()
+                .once()
+                .with(eq(PathBuf::from("web-resource-index.toml")))
+                .returning(|location| {
+                    let mut index = Index::new(location);
+                    index.update(Resource {
+                        path: PathBuf::from("assets/example.png"),
+                        url: "https://example.com/example.png".to_string(),
+                    });
+                    Ok(index)
+                });
+            world
+                .expect_write_index()
+                .once()
+                .with(eq({
+                    let mut index = Index::new(PathBuf::from("web-resource-index.toml"));
+                    index.update(Resource {
+                        path: PathBuf::from("assets/example.png"),
+                        url: "https://example.com/example.png".to_string(),
+                    });
+                    index
+                }))
+                .returning(|_| Ok(()));
+
+            world
+                .expect_resource_exists()
+                .once()
+                .with(eq(PathBuf::from("assets/example.png")))
+                .return_const(true);
+            world
+                .expect_download()
+                .once()
+                .with(
+                    eq(PathBuf::from("assets/example.png")),
+                    eq("https://example.com/example.png"),
+                )
+                .returning(|_, _| Ok(()));
+        },
+    )
+    .run()
+    .await
+}
+
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_with_index_outdated() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        index = true
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/example.png", "path": "assets/example.png"}]"#,
+        |world| {
+            world
+                .expect_read_index()
+                .once()
+                .with(eq(PathBuf::from("web-resource-index.toml")))
+                .returning(|location| {
+                    let mut index = Index::new(location);
+                    index.update(Resource {
+                        path: PathBuf::from("assets/example.png"),
+                        url: "https://example.com/example-old.png".to_string(),
+                    });
+                    Ok(index)
+                });
+            world
+                .expect_write_index()
+                .once()
+                .with(eq({
+                    let mut index = Index::new(PathBuf::from("web-resource-index.toml"));
+                    index.update(Resource {
+                        path: PathBuf::from("assets/example.png"),
+                        url: "https://example.com/example.png".to_string(),
+                    });
+                    index
+                }))
+                .returning(|_| Ok(()));
 
             world
                 .expect_resource_exists()

@@ -14,7 +14,10 @@ use crate::world::WorldExt as _;
 
 mod error;
 mod factory;
+#[cfg(not(feature = "test"))]
 mod index;
+#[cfg(feature = "test")]
+pub mod index;
 mod manifest;
 mod query_data;
 mod world;
@@ -26,8 +29,6 @@ use world::World;
 
 pub use error::*;
 pub use factory::WebResourceFactory;
-#[cfg(feature = "test")]
-pub use index::Index;
 #[cfg(feature = "test")]
 pub use world::{MockWorld, __mock_MockWorld_World::__new::Context as MockWorld_NewContext};
 
