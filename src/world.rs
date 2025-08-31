@@ -27,9 +27,6 @@ pub trait World: Send + Sync + 'static {
     /// The arguments given to the invocation
     fn arguments(&self) -> &CliArguments;
 
-    /// Returns the path of the `typst.toml` file that is closest to the input file.
-    async fn resolve_typst_toml(&self) -> io::Result<PathBuf>;
-
     /// Reads the `typst.toml` file that is closest to the input file.
     async fn read_typst_toml(&self) -> manifest::Result<PrequeryManifest>;
 
@@ -109,19 +106,9 @@ impl DefaultWorld {
             arguments,
         }
     }
-}
 
-#[async_trait]
-impl World for DefaultWorld {
-    fn preprocessors(&self) -> &PreprocessorMap<Self> {
-        &self.preprocessors
-    }
-
-    fn arguments(&self) -> &CliArguments {
-        &self.arguments
-    }
-
-    async fn resolve_typst_toml(&self) -> io::Result<PathBuf> {
+    /// Returns the path of the `typst.toml` file that is closest to the input file.
+    pub async fn resolve_typst_toml(&self) -> io::Result<PathBuf> {
         const TYPST_TOML: &str = "typst.toml";
 
         let input = path::absolute(&self.arguments().input)?;
@@ -149,6 +136,17 @@ impl World for DefaultWorld {
             p.push(TYPST_TOML);
         }
         Ok(p)
+    }
+}
+
+#[async_trait]
+impl World for DefaultWorld {
+    fn preprocessors(&self) -> &PreprocessorMap<Self> {
+        &self.preprocessors
+    }
+
+    fn arguments(&self) -> &CliArguments {
+        &self.arguments
     }
 
     async fn read_typst_toml(&self) -> manifest::Result<PrequeryManifest> {

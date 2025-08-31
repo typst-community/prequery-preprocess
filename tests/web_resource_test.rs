@@ -45,9 +45,6 @@ impl WebResourceTest {
             .expect_arguments()
             .return_const(CliArguments::parse_from(args));
         world
-            .expect_resolve_typst_toml()
-            .returning(|| Ok(PathBuf::from("typst.toml")));
-        world
             .expect_read_typst_toml()
             .returning(|| PrequeryManifest::parse(manifest));
 
@@ -132,7 +129,7 @@ async fn run_web_resource_no_resources_with_index() -> Result<()> {
                 .expect_read_index()
                 .once()
                 .with(eq(PathBuf::from("web-resource-index.toml")))
-                .returning(|location| Ok(Index::new(location)));
+                .returning(|location| Ok(Index::new(location.to_path_buf())));
             world
                 .expect_write_index()
                 .once()
@@ -317,7 +314,7 @@ async fn run_web_resource_with_index_missing() -> Result<()> {
                 .expect_read_index()
                 .once()
                 .with(eq(PathBuf::from("web-resource-index.toml")))
-                .returning(|location| Ok(Index::new(location)));
+                .returning(|location| Ok(Index::new(location.to_path_buf())));
             world
                 .expect_write_index()
                 .once()
@@ -382,7 +379,7 @@ async fn run_web_resource_with_index_existing() -> Result<()> {
                 .once()
                 .with(eq(PathBuf::from("web-resource-index.toml")))
                 .returning(|location| {
-                    let mut index = Index::new(location);
+                    let mut index = Index::new(location.to_path_buf());
                     index.update(Resource {
                         path: PathBuf::from("assets/example.png"),
                         url: "https://example.com/example.png".to_string(),
@@ -447,7 +444,7 @@ async fn run_web_resource_with_index_existing_forced() -> Result<()> {
                 .once()
                 .with(eq(PathBuf::from("web-resource-index.toml")))
                 .returning(|location| {
-                    let mut index = Index::new(location);
+                    let mut index = Index::new(location.to_path_buf());
                     index.update(Resource {
                         path: PathBuf::from("assets/example.png"),
                         url: "https://example.com/example.png".to_string(),
@@ -518,7 +515,7 @@ async fn run_web_resource_with_index_outdated() -> Result<()> {
                 .once()
                 .with(eq(PathBuf::from("web-resource-index.toml")))
                 .returning(|location| {
-                    let mut index = Index::new(location);
+                    let mut index = Index::new(location.to_path_buf());
                     index.update(Resource {
                         path: PathBuf::from("assets/example.png"),
                         url: "https://example.com/example-old.png".to_string(),

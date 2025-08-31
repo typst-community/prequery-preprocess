@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -21,8 +21,8 @@ pub trait World: Send + Sync + 'static {
     /// Accesses the main world.
     fn main(&self) -> &Arc<Self::MainWorld>;
 
-    /// Reads the web resource index at the specified location.
-    async fn read_index(&self, location: PathBuf) -> Result<Index, IndexError>;
+    /// Reads the web resource index at the given path, interpreted relative to the typst.toml file.
+    async fn read_index(&self, path: &Path) -> Result<Index, IndexError>;
 
     /// Writes the web resource index to its location.
     async fn write_index(&self, index: &Index) -> Result<(), IndexError>;
@@ -52,7 +52,15 @@ impl World for DefaultWorld {
         &self.main
     }
 
-    async fn read_index(&self, location: PathBuf) -> Result<Index, IndexError> {
+    async fn read_index(&self, path: &Path) -> Result<Index, IndexError> {
+        let mut location = self.main().resolve_typst_toml().await?;
+        let result = location.pop();
+        assert!(
+            result,
+            "the path should have had a final filename component"
+        );
+        location.push(path);
+
         let index = if fs::try_exists(&location).await.unwrap_or(false) {
             // read the existing index
             Index::read(location).await?

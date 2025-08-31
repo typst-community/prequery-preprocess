@@ -110,11 +110,9 @@ impl<W: World> WebResource<W> {
     }
 
     async fn populate_index(&mut self) -> Result<(), IndexError> {
-        if let Some(location) = self.manifest.resolve_index_path(self.world.as_ref()).await {
+        if let Some(path) = self.manifest.index.as_ref() {
             // an index is in use
-            let location = location?;
-            let index = self.world.read_index(location).await?;
-
+            let index = self.world.read_index(path).await?;
             self.index = Some(Mutex::new(index));
         } else {
             // no index is in use
