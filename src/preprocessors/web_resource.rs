@@ -111,13 +111,7 @@ impl<W: World> WebResource<W> {
         if let Some(location) = self.manifest.resolve_index_path(self.world.as_ref()).await {
             // an index is in use
             let location = location?;
-            let index = if fs::try_exists(&location).await.unwrap_or(false) {
-                // read the existing index
-                Index::read(location).await?
-            } else {
-                // generate an empty index
-                Index::new(location)
-            };
+            let index = self.world.read_index(location).await?;
 
             self.index = Some(Mutex::new(index));
         } else {
@@ -211,7 +205,7 @@ impl<W: World> WebResource<W> {
 
         if let Some(index) = &self.index {
             let index = index.lock().await;
-            index.write().await?;
+            self.world.write_index(&index).await?;
         }
 
         if !errors.is_empty() {
