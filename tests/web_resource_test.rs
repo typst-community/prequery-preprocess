@@ -65,7 +65,7 @@ impl WebResourceTest {
 
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_no_downloads_no_index() -> Result<()> {
+async fn run_web_resource_no_resources_no_index() -> Result<()> {
     WebResourceTest::new(
         &["typst-preprocess", "input.typ"],
         r#"
@@ -101,7 +101,7 @@ async fn run_web_resource_no_downloads_no_index() -> Result<()> {
 
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_no_downloads_with_index() -> Result<()> {
+async fn run_web_resource_no_resources_with_index() -> Result<()> {
     WebResourceTest::new(
         &["typst-preprocess", "input.typ"],
         r#"
@@ -137,6 +137,138 @@ async fn run_web_resource_no_downloads_with_index() -> Result<()> {
             // no resources in the query result
             world.expect_resource_exists().never();
             world.expect_download().never();
+        },
+    )
+    .run()
+    .await
+}
+
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_no_index_missing() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/example.png", "path": "assets/example.png"}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            world
+                .expect_resource_exists()
+                .once()
+                .with(eq(PathBuf::from("assets/example.png")))
+                .return_const(false);
+            world
+                .expect_download()
+                .once()
+                .with(
+                    eq(PathBuf::from("assets/example.png")),
+                    eq("https://example.com/example.png"),
+                )
+                .returning(|_, _| Ok(()));
+        },
+    )
+    .run()
+    .await
+}
+
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_no_index_existing() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/example.png", "path": "assets/example.png"}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            world
+                .expect_resource_exists()
+                .once()
+                .with(eq(PathBuf::from("assets/example.png")))
+                .return_const(true);
+            world.expect_download().never();
+        },
+    )
+    .run()
+    .await
+}
+
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_no_index_existing_forced() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        overwrite = true
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/example.png", "path": "assets/example.png"}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            world
+                .expect_resource_exists()
+                .once()
+                .with(eq(PathBuf::from("assets/example.png")))
+                .return_const(true);
+            world
+                .expect_download()
+                .once()
+                .with(
+                    eq(PathBuf::from("assets/example.png")),
+                    eq("https://example.com/example.png"),
+                )
+                .returning(|_, _| Ok(()));
         },
     )
     .run()

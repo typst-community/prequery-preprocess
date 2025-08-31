@@ -32,22 +32,58 @@ pub trait World: Send + Sync + 'static {
     /// Reads the `typst.toml` file that is closest to the input file.
     async fn read_typst_toml(&self) -> manifest::Result<PrequeryManifest>;
 
+    /// Executes the query. This builds the necessary command line, runs the command, and returns
+    /// the command's stdout.
+    async fn query(&self, query: &Query) -> query::Result<Vec<u8>>;
+}
+
+/// The context for executing preprocessors; provided methods that don't need to be customized
+/// between environments.
+pub trait WorldExt: World {
     /// returns the root path. This is either the explicitly given root or the directory in which
     /// the input file is located. If the input file path only consists of a file name, the current
     /// directory (`"."`) is the root. In general, this function does not return an absolute path.
-    fn resolve_root(&self) -> &Path;
+    fn resolve_root(&self) -> &Path {
+        if let Some(root) = &self.arguments().root {
+            // a root was explicitly given
+            root
+        } else if let Some(root) = self.arguments().input.parent() {
+            // the root is the directory of the input file
+            root
+        } else {
+            // the root is the directory of the input file, which is the current directory
+            Path::new(".")
+        }
+    }
 
     /// Resolve the virtual path relative to an actual file system root
     /// (where the project or package resides).
     ///
     /// Returns `None` if the path lexically escapes the root. The path might
     /// still escape through symlinks.
-    fn resolve(&self, path: &Path) -> Option<PathBuf>;
-
-    /// Executes the query. This builds the necessary command line, runs the command, and returns
-    /// the command's stdout.
-    async fn query(&self, query: &Query) -> query::Result<Vec<u8>>;
+    fn resolve(&self, path: &Path) -> Option<PathBuf> {
+        let root = self.resolve_root();
+        let root_len = root.as_os_str().len();
+        let mut out = root.to_path_buf();
+        for component in path.components() {
+            match component {
+                Component::Prefix(_) => {}
+                Component::RootDir => {}
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    out.pop();
+                    if out.as_os_str().len() < root_len {
+                        return None;
+                    }
+                }
+                Component::Normal(_) => out.push(component),
+            }
+        }
+        Some(out)
+    }
 }
+
+impl<T: World> WorldExt for T {}
 
 /// The default context, accessing the real web, filesystem, etc.
 pub struct DefaultWorld {
@@ -117,40 +153,6 @@ impl World for DefaultWorld {
         let config = fs::read_to_string(typst_toml).await?;
         let config = PrequeryManifest::parse(&config)?;
         Ok(config)
-    }
-
-    fn resolve_root(&self) -> &Path {
-        if let Some(root) = &self.arguments().root {
-            // a root was explicitly given
-            root
-        } else if let Some(root) = self.arguments().input.parent() {
-            // the root is the directory of the input file
-            root
-        } else {
-            // the root is the directory of the input file, which is the current directory
-            Path::new(".")
-        }
-    }
-
-    fn resolve(&self, path: &Path) -> Option<PathBuf> {
-        let root = self.resolve_root();
-        let root_len = root.as_os_str().len();
-        let mut out = root.to_path_buf();
-        for component in path.components() {
-            match component {
-                Component::Prefix(_) => {}
-                Component::RootDir => {}
-                Component::CurDir => {}
-                Component::ParentDir => {
-                    out.pop();
-                    if out.as_os_str().len() < root_len {
-                        return None;
-                    }
-                }
-                Component::Normal(_) => out.push(component),
-            }
-        }
-        Some(out)
     }
 
     async fn query(&self, query: &Query) -> query::Result<Vec<u8>> {

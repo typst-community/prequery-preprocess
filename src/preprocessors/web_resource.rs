@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 use crate::preprocessor::{self, Preprocessor};
 use crate::query::{self, Query};
 use crate::utils;
-use crate::world::World as _;
+use crate::world::WorldExt as _;
 
 mod error;
 mod factory;
