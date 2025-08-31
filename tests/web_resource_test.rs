@@ -64,6 +64,8 @@ impl WebResourceTest {
     }
 }
 
+/// Run the web resource preprocessor without any resources and no index.
+/// No downloads should happen, and no index should be saved.
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_no_resources_no_index() -> Result<()> {
@@ -100,6 +102,8 @@ async fn run_web_resource_no_resources_no_index() -> Result<()> {
     .await
 }
 
+/// Run the web resource preprocessor without any resources and an index.
+/// No downloads should happen, but the index should be saved.
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_no_resources_with_index() -> Result<()> {
@@ -144,6 +148,8 @@ async fn run_web_resource_no_resources_with_index() -> Result<()> {
     .await
 }
 
+/// Run the web resource preprocessor with one resource and no index.
+/// The resource does not exist locally and should be downloaded.
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_no_index_missing() -> Result<()> {
@@ -190,6 +196,8 @@ async fn run_web_resource_no_index_missing() -> Result<()> {
     .await
 }
 
+/// Run the web resource preprocessor with one resource and no index.
+/// The resource exists locally and should not be downloaded.
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_no_index_existing() -> Result<()> {
@@ -229,6 +237,8 @@ async fn run_web_resource_no_index_existing() -> Result<()> {
     .await
 }
 
+/// Run the web resource preprocessor with one resource and no index.
+/// The resource exists locally and should be re-downloaded according to the manifest.
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_no_index_existing_forced() -> Result<()> {
@@ -276,6 +286,9 @@ async fn run_web_resource_no_index_existing_forced() -> Result<()> {
     .await
 }
 
+/// Run the web resource preprocessor with one resource and an index.
+/// The resource does not exist locally and should be downloaded.
+/// The index should be saved with the downloaded resource in it.
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_with_index_missing() -> Result<()> {
@@ -337,6 +350,9 @@ async fn run_web_resource_with_index_missing() -> Result<()> {
     .await
 }
 
+/// Run the web resource preprocessor with one resource and an index.
+/// The resource exists locally and should not be downloaded.
+/// The index should be saved with the downloaded resource in it (no change).
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_with_index_existing() -> Result<()> {
@@ -398,6 +414,9 @@ async fn run_web_resource_with_index_existing() -> Result<()> {
     .await
 }
 
+/// Run the web resource preprocessor with one resource and an index.
+/// The resource exists locally and should be re-downloaded according to the manifest.
+/// The index should be saved with the downloaded resource in it (no change).
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_with_index_existing_forced() -> Result<()> {
@@ -467,6 +486,9 @@ async fn run_web_resource_with_index_existing_forced() -> Result<()> {
     .await
 }
 
+/// Run the web resource preprocessor with one resource and an index.
+/// The resource exists locally and should be re-downloaded because the URL has changed.
+/// The index should be saved with the downloaded resource in it (changed URL).
 #[tokio::test]
 #[serial(web_resource)]
 async fn run_web_resource_with_index_outdated() -> Result<()> {
