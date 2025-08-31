@@ -10,6 +10,7 @@ use super::{DownloadError, IndexError};
 
 /// The context for executing a WebResource job. Defines how downloading and saving files work, and
 /// thus allows mocking.
+#[cfg_attr(feature = "test", mockall::automock(type MainWorld = crate::world::MockWorld;))]
 #[async_trait]
 pub trait World: Send + Sync + 'static {
     type MainWorld: crate::world::World;
