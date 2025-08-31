@@ -1,35 +1,42 @@
 //! The `web-resource` preprocessor
 
 use std::io;
-use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
+use derive_more::Debug;
 use tokio::sync::Mutex;
 
-use crate::args::ARGS;
 use crate::preprocessor::{self, Preprocessor};
 use crate::query::{self, Query};
 use crate::utils;
+use crate::world::WorldExt as _;
 
 mod error;
 mod factory;
+#[cfg(not(feature = "test"))]
 mod index;
+#[cfg(feature = "test")]
+pub mod index;
 mod manifest;
 mod query_data;
+mod world;
 
 use index::*;
 use manifest::*;
 use query_data::*;
+use world::World;
 
 pub use error::*;
 pub use factory::WebResourceFactory;
+#[cfg(feature = "test")]
+pub use world::{MockWorld, __mock_MockWorld_World::__new::Context as MockWorld_NewContext};
 
 /// The `web-resource` preprocessor
 #[derive(Debug)]
-pub struct WebResource {
+pub struct WebResource<W: World> {
+    #[debug(skip)]
+    world: Arc<W>,
     name: String,
     manifest: Manifest,
     index: Option<Mutex<Index>>,
@@ -85,14 +92,16 @@ impl ResourceState {
     }
 }
 
-impl WebResource {
+impl<W: World> WebResource<W> {
     pub(crate) fn new(
+        world: Arc<W>,
         name: String,
         manifest: Manifest,
         index: Option<Mutex<Index>>,
         query: Query,
     ) -> Self {
         Self {
+            world,
             name,
             index,
             manifest,
@@ -101,17 +110,9 @@ impl WebResource {
     }
 
     async fn populate_index(&mut self) -> Result<(), IndexError> {
-        if let Some(location) = self.manifest.resolve_index_path().await {
+        if let Some(path) = self.manifest.index.as_ref() {
             // an index is in use
-            let location = location?;
-            let index = if fs::try_exists(&location).await.unwrap_or(false) {
-                // read the existing index
-                Index::read(location).await?
-            } else {
-                // generate an empty index
-                Index::new(location)
-            };
-
+            let index = self.world.read_index(path).await?;
             self.index = Some(Mutex::new(index));
         } else {
             // no index is in use
@@ -122,7 +123,7 @@ impl WebResource {
     }
 
     async fn query(&self) -> query::Result<QueryData> {
-        let data = self.query.query().await?;
+        let data = self.world.main().query(&self.query).await?;
         Ok(data)
     }
 
@@ -130,14 +131,14 @@ impl WebResource {
         let name = self.name();
         let Resource { url, path } = &resource;
 
-        let resolved_path = ARGS.resolve(path).ok_or_else(|| {
+        let resolved_path = self.world.main().resolve(path).ok_or_else(|| {
             let path_str = path.to_string_lossy();
             let msg = format!("{path_str} is outside the project root");
             io::Error::new(io::ErrorKind::PermissionDenied, msg)
         })?;
         let path_str = resolved_path.to_string_lossy();
 
-        let exists = fs::try_exists(&resolved_path).await.unwrap_or(false);
+        let exists = self.world.resource_exists(&resolved_path).await;
         let state = if !exists {
             ResourceState::Missing
         } else if self.manifest.overwrite {
@@ -156,7 +157,7 @@ impl WebResource {
         state.print(name, url, &path_str);
 
         if state.download() {
-            let result = self.do_download(&resolved_path, url).await;
+            let result = self.world.download(&resolved_path, url).await;
             match &result {
                 Ok(()) => {
                     if let Some(index) = &self.index {
@@ -175,20 +176,7 @@ impl WebResource {
         Ok(())
     }
 
-    async fn do_download(&self, resolved_path: &Path, url: &String) -> Result<(), DownloadError> {
-        if let Some(parent) = resolved_path.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-        let mut response = reqwest::get(url).await?.error_for_status()?;
-        let mut file = fs::File::create(&resolved_path).await?;
-        while let Some(chunk) = response.chunk().await? {
-            file.write_all(&chunk).await?;
-        }
-        file.flush().await?;
-        Ok(())
-    }
-
-    async fn run_impl(self: &mut Arc<WebResource>) -> ExecutionResult<()> {
+    async fn run_impl(self: &mut Arc<Self>) -> ExecutionResult<()> {
         Arc::get_mut(self)
             .expect("web-resource ref count should be one before starting the processing")
             .populate_index()
@@ -204,7 +192,7 @@ impl WebResource {
 
         if let Some(index) = &self.index {
             let index = index.lock().await;
-            index.write().await?;
+            self.world.write_index(&index).await?;
         }
 
         if !errors.is_empty() {
@@ -216,7 +204,7 @@ impl WebResource {
 }
 
 #[async_trait]
-impl Preprocessor for Arc<WebResource> {
+impl<W: World> Preprocessor<W::MainWorld> for Arc<WebResource<W>> {
     fn name(&self) -> &str {
         &self.name
     }

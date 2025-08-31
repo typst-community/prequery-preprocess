@@ -2,17 +2,11 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::path::Path;
 
-use itertools::{Either, Itertools};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
-use tokio::fs;
 use toml::Table;
 use typst_syntax::package::PackageManifest;
-
-use crate::error::MultiplePreprocessorConfigError;
-use crate::preprocessor::{BoxedPreprocessor, PreprocessorMap};
 
 pub use error::*;
 
@@ -71,34 +65,6 @@ impl PrequeryManifest {
             .map_err(Error::from)?;
         Ok(config)
     }
-
-    /// Resolves and reads the given `typst.toml` file.
-    pub async fn read<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let config = fs::read_to_string(path).await?;
-        let config = Self::parse(&config)?;
-        Ok(config)
-    }
-
-    /// Tries to configure all preprocessors in this manifest. Fails if any preprocessors can not be
-    /// configured.
-    pub fn get_preprocessors(
-        self,
-        preprocessors: &PreprocessorMap,
-    ) -> Result<Vec<BoxedPreprocessor>, MultiplePreprocessorConfigError> {
-        let (jobs, errors): (Vec<_>, Vec<_>) =
-            self.jobs
-                .into_iter()
-                .partition_map(|job| match preprocessors.get(job) {
-                    Ok(value) => Either::Left(value),
-                    Err(err) => Either::Right(err),
-                });
-
-        if !errors.is_empty() {
-            return Err(MultiplePreprocessorConfigError::new(errors));
-        }
-
-        Ok(jobs)
-    }
 }
 
 /// Deserializes the `field` config: if given, must be either a string or `false`.
@@ -112,7 +78,7 @@ where
         type Value = Option<Option<String>>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("`false` or a string`")
+            formatter.write_str("`false` or a string")
         }
 
         fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>

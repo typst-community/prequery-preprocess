@@ -1,11 +1,8 @@
 use std::fmt;
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
-
-use crate::args::ARGS;
 
 /// Auxilliary configuration for the preprocessor
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -25,27 +22,6 @@ pub struct Manifest {
     /// to be enabled.
     #[serde(default)]
     pub evict: bool,
-}
-
-impl Manifest {
-    pub async fn resolve_index_path(&self) -> Option<io::Result<PathBuf>> {
-        async fn inner<P: AsRef<Path>>(index: P) -> io::Result<PathBuf> {
-            let mut path = ARGS.resolve_typst_toml().await?;
-            let result = path.pop();
-            assert!(
-                result,
-                "the path should have had a final filename component"
-            );
-            path.push(&index);
-            Ok(path)
-        }
-
-        if let Some(index) = &self.index {
-            Some(inner(index).await)
-        } else {
-            None
-        }
-    }
 }
 
 /// Deserializes the `index` config: if given, must be either a boolean or string.
