@@ -13,17 +13,19 @@ use tokio::sync::Mutex;
 use crate::preprocessor::{self, Preprocessor};
 use crate::query::{self, Query};
 use crate::utils;
-use crate::world::World;
+use crate::world::World as _;
 
 mod error;
 mod factory;
 mod index;
 mod manifest;
 mod query_data;
+mod world;
 
 use index::*;
 use manifest::*;
 use query_data::*;
+use world::World;
 
 pub use error::*;
 pub use factory::WebResourceFactory;
@@ -127,7 +129,7 @@ impl<W: World> WebResource<W> {
     }
 
     async fn query(&self) -> query::Result<QueryData> {
-        let data = self.query.execute(self.world.as_ref()).await?;
+        let data = self.query.execute(self.world.main().as_ref()).await?;
         Ok(data)
     }
 
@@ -135,7 +137,7 @@ impl<W: World> WebResource<W> {
         let name = self.name();
         let Resource { url, path } = &resource;
 
-        let resolved_path = self.world.resolve(path).ok_or_else(|| {
+        let resolved_path = self.world.main().resolve(path).ok_or_else(|| {
             let path_str = path.to_string_lossy();
             let msg = format!("{path_str} is outside the project root");
             io::Error::new(io::ErrorKind::PermissionDenied, msg)
@@ -221,7 +223,7 @@ impl<W: World> WebResource<W> {
 }
 
 #[async_trait]
-impl<W: World> Preprocessor<W> for Arc<WebResource<W>> {
+impl<W: World> Preprocessor<W::MainWorld> for Arc<WebResource<W>> {
     fn name(&self) -> &str {
         &self.name
     }

@@ -63,8 +63,8 @@ impl Default for DefaultWorld {
 impl DefaultWorld {
     /// Creates the default world.
     pub fn new() -> Self {
-        let mut preprocessors = PreprocessorMap::new();
-        preprocessors.register(crate::web_resource::WebResourceFactory);
+        let mut preprocessors = PreprocessorMap::default();
+        preprocessors.register(crate::web_resource::WebResourceFactory::default());
         Self { preprocessors }
     }
 }

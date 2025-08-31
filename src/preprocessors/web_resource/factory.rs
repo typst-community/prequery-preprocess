@@ -1,18 +1,32 @@
 use std::borrow::Cow;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::manifest;
 use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
-use crate::world::World;
 
+use super::world::{DefaultWorld, World};
 use super::{Manifest, ManifestError, ManifestResult, QueryConfigError, WebResource};
 
 /// The `web-resource` preprocessor factory
 #[derive(Debug, Clone, Copy)]
-pub struct WebResourceFactory;
+pub struct WebResourceFactory<W> {
+    _w: PhantomData<W>,
+}
 
-impl WebResourceFactory {
+impl Default for WebResourceFactory<DefaultWorld> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<W: World> WebResourceFactory<W> {
+    /// Creates a factory with the given world.
+    pub fn new() -> Self {
+        Self { _w: PhantomData }
+    }
+
     fn parse_config(config: toml::Table) -> ManifestResult<Manifest> {
         let config = config.try_into()?;
         Ok(config)
@@ -33,7 +47,7 @@ impl WebResourceFactory {
     }
 }
 
-impl<W: World> PreprocessorDefinition<W> for WebResourceFactory {
+impl<W: World> PreprocessorDefinition<W::MainWorld> for WebResourceFactory<W> {
     type Error = ManifestError;
 
     fn name(&self) -> Cow<'static, str> {
@@ -42,16 +56,17 @@ impl<W: World> PreprocessorDefinition<W> for WebResourceFactory {
 
     fn configure(
         &self,
-        world: &Arc<W>,
+        world: &Arc<W::MainWorld>,
         name: String,
         config: toml::Table,
         query: manifest::Query,
-    ) -> ManifestResult<BoxedPreprocessor<W>> {
+    ) -> ManifestResult<BoxedPreprocessor<W::MainWorld>> {
+        let world = Arc::new(W::new(world.clone()));
         let config = Self::parse_config(config)?;
         // index begins as None and is asynchronously populated later
         let index = None;
         let query = Self::build_query(query)?;
-        let instance = WebResource::new(world.clone(), name, config, index, query);
+        let instance = WebResource::new(world, name, config, index, query);
         Ok(Box::new(Arc::new(instance)))
     }
 }
