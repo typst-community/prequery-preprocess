@@ -13,12 +13,16 @@ use super::IndexError;
 pub trait World: Send + Sync + 'static {
     type MainWorld: crate::world::World;
 
+    /// Creates a new web resource world based on the given main world.
     fn new(main: Arc<Self::MainWorld>) -> Self;
 
+    /// Accesses the main world.
     fn main(&self) -> &Arc<Self::MainWorld>;
 
+    /// Reads the web resource index at the specified location.
     async fn read_index(&self, location: PathBuf) -> Result<Index, IndexError>;
 
+    /// Writes the web resource index to its location.
     async fn write_index(&self, index: &Index) -> Result<(), IndexError>;
 }
 
