@@ -49,7 +49,7 @@ impl WebResourceTest {
             .returning(|| PrequeryManifest::parse(manifest));
 
         world
-            .expect_query()
+            .expect_query_impl()
             .with(eq(query))
             .returning(|_| Ok(query_result.to_vec()));
 

@@ -11,6 +11,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use clap::Parser;
 use itertools::{Either, Itertools};
+use serde::Deserialize;
 use tokio::fs;
 use tokio::process::Command;
 
@@ -35,11 +36,12 @@ pub trait World: Send + Sync + 'static {
 
     /// Executes the query. This builds the necessary command line, runs the command, and returns
     /// the command's stdout.
-    async fn query(&self, query: &Query) -> query::Result<Vec<u8>>;
+    async fn query_impl(&self, query: &Query) -> query::Result<Vec<u8>>;
 }
 
 /// The context for executing preprocessors; provided methods that don't need to be customized
 /// between environments.
+#[async_trait]
 pub trait WorldExt: World {
     /// returns the root path. This is either the explicitly given root or the directory in which
     /// the input file is located. If the input file path only consists of a file name, the current
@@ -105,8 +107,20 @@ pub trait WorldExt: World {
 
         Ok(jobs)
     }
+
+    /// Executes the query. This builds the necessary command line, runs the command, and returns
+    /// the result parsed into the desired type from JSON.
+    async fn query<T>(&self, query: &Query) -> query::Result<T>
+    where
+        T: for<'a> Deserialize<'a>,
+    {
+        let output = self.query_impl(query).await?;
+        let value = serde_json::from_slice(&output)?;
+        Ok(value)
+    }
 }
 
+#[async_trait]
 impl<T: World> WorldExt for T {}
 
 /// The default context, accessing the real web, filesystem, etc.
@@ -185,7 +199,7 @@ impl World for DefaultWorld {
         Ok(config)
     }
 
-    async fn query(&self, query: &Query) -> query::Result<Vec<u8>> {
+    async fn query_impl(&self, query: &Query) -> query::Result<Vec<u8>> {
         let mut cmd = Command::new(&self.arguments().typst);
         cmd.arg("query");
         if let Some(root) = &self.arguments().root {

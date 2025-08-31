@@ -2,10 +2,7 @@
 
 use std::collections::HashMap;
 
-use serde::Deserialize;
-
 use crate::manifest;
-use crate::world::World;
 
 pub use error::*;
 
@@ -29,18 +26,6 @@ impl Query {
     /// Creates a query builder
     pub fn builder() -> QueryBuilder {
         QueryBuilder::default()
-    }
-
-    /// Executes the query. This builds the necessary command line, runs the command, and returns
-    /// the result parsed into the desired type from JSON.
-    pub async fn execute<T, W>(&self, world: &W) -> Result<T>
-    where
-        T: for<'a> Deserialize<'a>,
-        W: World + ?Sized,
-    {
-        let output = world.query(self).await?;
-        let value = serde_json::from_slice(&output)?;
-        Ok(value)
     }
 }
 
