@@ -2,4 +2,4 @@ version = 1
 
 [[resource]]
 path = "assets/example-image.svg"
-url = "https://raw.githubusercontent.com/SillyFreak/typst-preprocess/refs/heads/main/test-assets/example-image.svg"
+url = "https://raw.githubusercontent.com/typst-community/prequery-preprocess/refs/heads/main/test-assets/example-image.svg"
