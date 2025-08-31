@@ -131,7 +131,9 @@ mod error {
         #[error("typst.toml does not contain `tool.prequery` section")]
         Missing,
         /// The prequery section contains invalid config data
-        #[error("typst.toml contains `tool.prequery` key, but it's not a valid preprocessor configuration")]
+        #[error(
+            "typst.toml contains `tool.prequery` key, but it's not a valid preprocessor configuration"
+        )]
         Invalid(#[from] toml::de::Error),
     }
 
