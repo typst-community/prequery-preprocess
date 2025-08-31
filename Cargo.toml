@@ -30,6 +30,7 @@ typst-syntax = "0.13.1"
 
 [features]
 test = ["mockall"]
+native-tls-vendored = ["reqwest/native-tls-vendored"]
 
 [dev-dependencies]
 serial_test = "3.2.0"

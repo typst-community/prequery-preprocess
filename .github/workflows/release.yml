@@ -58,7 +58,7 @@ jobs:
       if: ${{ matrix.cross }}
       run: |
         cargo install cross --git https://github.com/cross-rs/cross.git --locked --rev 085092ca
-        cross build --release --target ${{ matrix.target }}
+        cross build --release --target ${{ matrix.target }} --features native-tls-vendored
 
     - name: Run Cargo
       if: ${{ !matrix.cross }}
