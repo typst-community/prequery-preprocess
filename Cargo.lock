@@ -1054,6 +1054,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "prequery-preprocess"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "clap",
+ "derive_more",
+ "itertools",
+ "mockall",
+ "once_cell",
+ "prequery-preprocess",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "thiserror",
+ "tokio",
+ "toml",
+ "typst-syntax",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1697,27 +1718,6 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
-
-[[package]]
-name = "typst-preprocess"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "clap",
- "derive_more",
- "itertools",
- "mockall",
- "once_cell",
- "reqwest",
- "serde",
- "serde_json",
- "serial_test",
- "thiserror",
- "tokio",
- "toml",
- "typst-preprocess",
- "typst-syntax",
-]
 
 [[package]]
 name = "typst-syntax"

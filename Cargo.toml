@@ -1,5 +1,5 @@
 [package]
-name = "typst-preprocess"
+name = "prequery-preprocess"
 version = "0.1.0"
 description = "A preprocessor for prequery metadata embedded in Typst documents."
 authors = ["Clemens Koza <https://github.com/SillyFreak/>"]
@@ -34,4 +34,4 @@ native-tls-vendored = ["reqwest/native-tls-vendored"]
 
 [dev-dependencies]
 serial_test = "3.2.0"
-typst-preprocess = { path = ".", features = ["test"] }
+prequery-preprocess = { path = ".", features = ["test"] }

@@ -1,14 +1,14 @@
 use clap::Parser;
 
 use mockall::predicate::{always, eq};
-use typst_preprocess::args::CliArguments;
-use typst_preprocess::entry::run;
-use typst_preprocess::error::Result;
-use typst_preprocess::manifest::PrequeryManifest;
-use typst_preprocess::preprocessor::{
+use prequery_preprocess::args::CliArguments;
+use prequery_preprocess::entry::run;
+use prequery_preprocess::error::Result;
+use prequery_preprocess::manifest::PrequeryManifest;
+use prequery_preprocess::preprocessor::{
     MockPreprocessor, MockPreprocessorDefinition, PreprocessorMap,
 };
-use typst_preprocess::world::MockWorld;
+use prequery_preprocess::world::MockWorld;
 
 #[tokio::test]
 async fn run_dummy_preprocessor() -> Result<()> {
@@ -43,7 +43,10 @@ async fn run_dummy_preprocessor() -> Result<()> {
     });
     world
         .expect_arguments()
-        .return_const(CliArguments::parse_from(["typst-preprocess", "input.typ"]));
+        .return_const(CliArguments::parse_from([
+            "prequery-preprocess",
+            "input.typ",
+        ]));
     world.expect_read_typst_toml().returning(|| {
         PrequeryManifest::parse(
             r#"

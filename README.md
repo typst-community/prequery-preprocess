@@ -1,4 +1,4 @@
-# `typst-preprocess`
+# `prequery-preprocess`
 
 A tool for processing [prequery](https://typst.app/universe/package/prequery) data in Typst documents.
 

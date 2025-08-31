@@ -3,16 +3,16 @@ use std::path::PathBuf;
 use clap::Parser;
 
 use mockall::predicate::eq;
+use prequery_preprocess::args::CliArguments;
+use prequery_preprocess::entry::run;
+use prequery_preprocess::error::Result;
+use prequery_preprocess::manifest::PrequeryManifest;
+use prequery_preprocess::preprocessor::PreprocessorMap;
+use prequery_preprocess::query::Query;
+use prequery_preprocess::web_resource::index::{Index, Resource};
+use prequery_preprocess::web_resource::{MockWorld, MockWorld_NewContext, WebResourceFactory};
+use prequery_preprocess::world::MockWorld as MainMockWorld;
 use serial_test::serial;
-use typst_preprocess::args::CliArguments;
-use typst_preprocess::entry::run;
-use typst_preprocess::error::Result;
-use typst_preprocess::manifest::PrequeryManifest;
-use typst_preprocess::preprocessor::PreprocessorMap;
-use typst_preprocess::query::Query;
-use typst_preprocess::web_resource::index::{Index, Resource};
-use typst_preprocess::web_resource::{MockWorld, MockWorld_NewContext, WebResourceFactory};
-use typst_preprocess::world::MockWorld as MainMockWorld;
 
 struct WebResourceTest {
     pub _ctx: MockWorld_NewContext,
@@ -67,7 +67,7 @@ impl WebResourceTest {
 #[serial(web_resource)]
 async fn run_web_resource_no_resources_no_index() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -105,7 +105,7 @@ async fn run_web_resource_no_resources_no_index() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_no_resources_with_index() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -151,7 +151,7 @@ async fn run_web_resource_no_resources_with_index() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_download_outside_root() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -191,7 +191,7 @@ async fn run_web_resource_download_outside_root() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_no_index_missing() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -239,7 +239,7 @@ async fn run_web_resource_no_index_missing() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_no_index_existing() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -280,7 +280,7 @@ async fn run_web_resource_no_index_existing() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_no_index_existing_forced() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -330,7 +330,7 @@ async fn run_web_resource_no_index_existing_forced() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_with_index_missing() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -394,7 +394,7 @@ async fn run_web_resource_with_index_missing() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_with_index_existing() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -458,7 +458,7 @@ async fn run_web_resource_with_index_existing() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_with_index_existing_forced() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"
@@ -530,7 +530,7 @@ async fn run_web_resource_with_index_existing_forced() -> Result<()> {
 #[serial(web_resource)]
 async fn run_web_resource_with_index_outdated() -> Result<()> {
     WebResourceTest::new(
-        &["typst-preprocess", "input.typ"],
+        &["prequery-preprocess", "input.typ"],
         r#"
         [package]
         name = "test"

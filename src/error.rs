@@ -1,4 +1,4 @@
-//! Error types for the overall typst-preprocessor API
+//! Error types for the overall prequery-preprocessor API
 
 use std::fmt;
 
