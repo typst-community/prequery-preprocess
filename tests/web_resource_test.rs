@@ -146,6 +146,46 @@ async fn run_web_resource_no_resources_with_index() -> Result<()> {
 }
 
 /// Run the web resource preprocessor with one resource and no index.
+/// The resource is outside the root and should not be downloaded.
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_download_outside_root() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/example.png", "path": "../example.png"}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            world.expect_resource_exists().never();
+            world.expect_download().never();
+        },
+    )
+    .run()
+    .await
+    .expect_err("access to file outside root should be denied");
+
+    Ok(())
+}
+
+/// Run the web resource preprocessor with one resource and no index.
 /// The resource does not exist locally and should be downloaded.
 #[tokio::test]
 #[serial(web_resource)]

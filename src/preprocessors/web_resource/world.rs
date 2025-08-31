@@ -80,12 +80,12 @@ impl World for DefaultWorld {
         fs::try_exists(location).await.unwrap_or(false)
     }
 
-    async fn download(&self, resolved_path: &Path, url: &str) -> Result<(), DownloadError> {
-        if let Some(parent) = resolved_path.parent() {
+    async fn download(&self, location: &Path, url: &str) -> Result<(), DownloadError> {
+        if let Some(parent) = location.parent() {
             fs::create_dir_all(parent).await?;
         }
         let mut response = reqwest::get(url).await?.error_for_status()?;
-        let mut file = fs::File::create(&resolved_path).await?;
+        let mut file = fs::File::create(&location).await?;
         while let Some(chunk) = response.chunk().await? {
             file.write_all(&chunk).await?;
         }

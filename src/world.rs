@@ -74,8 +74,8 @@ pub trait WorldExt: World {
                 Component::RootDir => {}
                 Component::CurDir => {}
                 Component::ParentDir => {
-                    out.pop();
-                    if out.as_os_str().len() < root_len {
+                    let result = out.pop();
+                    if !result || out.as_os_str().len() < root_len {
                         return None;
                     }
                 }
