@@ -1,7 +1,13 @@
 [package]
 name = "typst-preprocess"
 version = "0.1.0"
+description = "A preprocessor for prequery metadata embedded in Typst documents."
+authors = ["Clemens Koza <https://github.com/SillyFreak/>"]
 edition = "2024"
+repository = "https://github.com/SillyFreak/typst-preprocess"
+license = "MIT"
+categories = ["command-line-utilities"]
+keywords = ["typst"]
 
 [[bin]]
 name = "prequery-preprocess"

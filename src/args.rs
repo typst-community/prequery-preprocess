@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
-/// A Preprocessor for prequery-style metadata embedded in Typst documents.
+/// A preprocessor for prequery-style metadata embedded in Typst documents.
 /// See <https://typst.app/universe/package/prequery> for more details.
 ///
 /// Running this program looks for a `typst.toml` file and reads the contained
