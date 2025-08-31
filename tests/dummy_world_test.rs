@@ -43,7 +43,7 @@ async fn run_dummy_preprocessor() -> Result<()> {
     });
     world
         .expect_arguments()
-        .return_const(CliArguments::parse_from(&["typst-preprocess", "input.typ"]));
+        .return_const(CliArguments::parse_from(["typst-preprocess", "input.typ"]));
     world.expect_read_typst_toml().returning(|| {
         PrequeryManifest::parse(
             r#"
