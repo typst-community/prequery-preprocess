@@ -110,7 +110,7 @@ mod error {
         Json(#[from] serde_json::Error),
     }
 
-    /// Error in the query builder: a required ocnfiguration is missing
+    /// Error in the query builder: a required configuration is missing
     #[derive(Error, Debug)]
     pub enum QueryBuilderError {
         /// `selector` is missing

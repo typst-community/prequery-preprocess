@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
 
-/// Auxilliary configuration for the preprocessor
+/// Auxiliary configuration for the preprocessor
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
     /// Always downloads and overwrites all files. It is not recommended to permanently set this

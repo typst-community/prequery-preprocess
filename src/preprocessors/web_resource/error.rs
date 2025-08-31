@@ -45,7 +45,7 @@ pub enum IndexError {
     Write(#[from] toml::ser::Error),
 }
 
-/// An error doring downloading a resource from the web
+/// An error during downloading a resource from the web
 #[derive(Error, Debug)]
 pub enum DownloadError {
     /// A network error during the download
@@ -92,7 +92,7 @@ pub enum ExecutionError {
     /// An error while executing the job's query
     #[error(transparent)]
     Query(#[from] query::Error),
-    /// An error doring downloading a resource from the web
+    /// An error during downloading a resource from the web
     #[error(transparent)]
     Download(#[from] MultipleDownloadError),
 }
