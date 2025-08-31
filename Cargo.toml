@@ -10,7 +10,7 @@ categories = ["command-line-utilities"]
 keywords = ["typst"]
 
 [[bin]]
-name = "prequery-preprocess"
+name = "prequery"
 path = "src/main.rs"
 
 [dependencies]

@@ -67,14 +67,15 @@ jobs:
     - name: Create artifact directory
       shell: bash
       run: |
-        directory=typst-preprocess-${{ matrix.target }}
+        directory=prequery-preprocess-${{ matrix.target }}
         mkdir $directory
         cp README.md LICENSE $directory
-        if [ -f target/${{ matrix.target }}/release/typst-preprocess.exe ]; then
-          cp target/${{ matrix.target }}/release/typst-preprocess.exe $directory
+        ls target/${{ matrix.target }}/release/
+        if [ -f target/${{ matrix.target }}/release/prequery.exe ]; then
+          cp target/${{ matrix.target }}/release/prequery.exe $directory
           7z a -r $directory.zip $directory
         else
-          cp target/${{ matrix.target }}/release/typst-preprocess $directory
+          cp target/${{ matrix.target }}/release/prequery $directory
           tar cJf $directory.tar.xz $directory
         fi
 
@@ -82,15 +83,15 @@ jobs:
       uses: actions/upload-artifact@v4
       if: github.event_name == 'workflow_dispatch'
       with:
-        name: typst-preprocess-${{ matrix.target }}
-        path: "typst-preprocess-${{ matrix.target }}.*"
+        name: prequery-preprocess-${{ matrix.target }}
+        path: "prequery-preprocess-${{ matrix.target }}.*"
         retention-days: 3
 
     - name: Add artifacts to release
       uses: ncipollo/release-action@v1
       if: github.event_name == 'release' || github.event_name == 'push'
       with:
-        artifacts: "typst-preprocess-${{ matrix.target }}.*"
+        artifacts: "prequery-preprocess-${{ matrix.target }}.*"
         allowUpdates: true
         omitNameDuringUpdate: true
         omitBodyDuringUpdate: true
