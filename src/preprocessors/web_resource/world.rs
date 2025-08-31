@@ -1,11 +1,12 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::fs;
+use tokio::io::AsyncWriteExt;
 
 use super::index::Index;
-use super::IndexError;
+use super::{DownloadError, IndexError};
 
 /// The context for executing a WebResource job. Defines how downloading and saving files work, and
 /// thus allows mocking.
@@ -24,6 +25,12 @@ pub trait World: Send + Sync + 'static {
 
     /// Writes the web resource index to its location.
     async fn write_index(&self, index: &Index) -> Result<(), IndexError>;
+
+    /// Checks whether a resource at the given path exists.
+    async fn resource_exists(&self, location: &Path) -> bool;
+
+    /// Performs the download of a URL's contents to a file.
+    async fn download(&self, location: &Path, url: &str) -> Result<(), DownloadError>;
 }
 
 /// The default context, accessing the real web and filesystem.
@@ -57,6 +64,23 @@ impl World for DefaultWorld {
 
     async fn write_index(&self, index: &Index) -> Result<(), IndexError> {
         index.write().await?;
+        Ok(())
+    }
+
+    async fn resource_exists(&self, location: &Path) -> bool {
+        fs::try_exists(location).await.unwrap_or(false)
+    }
+
+    async fn download(&self, resolved_path: &Path, url: &str) -> Result<(), DownloadError> {
+        if let Some(parent) = resolved_path.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+        let mut response = reqwest::get(url).await?.error_for_status()?;
+        let mut file = fs::File::create(&resolved_path).await?;
+        while let Some(chunk) = response.chunk().await? {
+            file.write_all(&chunk).await?;
+        }
+        file.flush().await?;
         Ok(())
     }
 }

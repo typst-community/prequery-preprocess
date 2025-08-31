@@ -1,13 +1,10 @@
 //! The `web-resource` preprocessor
 
 use std::io;
-use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use derive_more::Debug;
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
 use crate::preprocessor::{self, Preprocessor};
@@ -138,7 +135,7 @@ impl<W: World> WebResource<W> {
         })?;
         let path_str = resolved_path.to_string_lossy();
 
-        let exists = fs::try_exists(&resolved_path).await.unwrap_or(false);
+        let exists = self.world.resource_exists(&resolved_path).await;
         let state = if !exists {
             ResourceState::Missing
         } else if self.manifest.overwrite {
@@ -157,7 +154,7 @@ impl<W: World> WebResource<W> {
         state.print(name, url, &path_str);
 
         if state.download() {
-            let result = self.do_download(&resolved_path, url).await;
+            let result = self.world.download(&resolved_path, url).await;
             match &result {
                 Ok(()) => {
                     if let Some(index) = &self.index {
@@ -173,19 +170,6 @@ impl<W: World> WebResource<W> {
             result?;
         }
 
-        Ok(())
-    }
-
-    async fn do_download(&self, resolved_path: &Path, url: &String) -> Result<(), DownloadError> {
-        if let Some(parent) = resolved_path.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-        let mut response = reqwest::get(url).await?.error_for_status()?;
-        let mut file = fs::File::create(&resolved_path).await?;
-        while let Some(chunk) = response.chunk().await? {
-            file.write_all(&chunk).await?;
-        }
-        file.flush().await?;
         Ok(())
     }
 
