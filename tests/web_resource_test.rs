@@ -1,13 +1,16 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 use mockall::predicate::eq;
+use serial_test::serial;
 use typst_preprocess::args::CliArguments;
 use typst_preprocess::entry::run;
 use typst_preprocess::error::Result;
 use typst_preprocess::manifest::PrequeryManifest;
 use typst_preprocess::preprocessor::PreprocessorMap;
 use typst_preprocess::query::Query;
-use typst_preprocess::web_resource::{MockWorld, MockWorld_NewContext, WebResourceFactory};
+use typst_preprocess::web_resource::{Index, MockWorld, MockWorld_NewContext, WebResourceFactory};
 use typst_preprocess::world::MockWorld as MainMockWorld;
 
 struct WebResourceTest {
@@ -41,6 +44,9 @@ impl WebResourceTest {
             .expect_arguments()
             .return_const(CliArguments::parse_from(args));
         world
+            .expect_resolve_typst_toml()
+            .returning(|| Ok(PathBuf::from("typst.toml")));
+        world
             .expect_read_typst_toml()
             .returning(|| PrequeryManifest::parse(manifest));
 
@@ -58,7 +64,8 @@ impl WebResourceTest {
 }
 
 #[tokio::test]
-async fn run_web_resource() -> Result<()> {
+#[serial(web_resource)]
+async fn run_web_resource_no_downloads_no_index() -> Result<()> {
     WebResourceTest::new(
         &["typst-preprocess", "input.typ"],
         r#"
@@ -82,6 +89,54 @@ async fn run_web_resource() -> Result<()> {
             // no index specified in the manifest
             world.expect_read_index().never();
             world.expect_write_index().never();
+
+            // no resources in the query result
+            world.expect_resource_exists().never();
+            world.expect_download().never();
+        },
+    )
+    .run()
+    .await
+}
+
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_no_downloads_with_index() -> Result<()> {
+    WebResourceTest::new(
+        &["typst-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        index = true
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[]"#,
+        |world| {
+            world
+                .expect_read_index()
+                .once()
+                .with(eq(PathBuf::from("web-resource-index.toml")))
+                .returning(|location| Ok(Index::new(location)));
+            world
+                .expect_write_index()
+                .once()
+                .with(eq(Index::new(PathBuf::from("web-resource-index.toml"))))
+                .returning(|_| Ok(()));
+
+            // no resources in the query result
+            world.expect_resource_exists().never();
+            world.expect_download().never();
         },
     )
     .run()

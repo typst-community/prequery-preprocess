@@ -27,6 +27,8 @@ use world::World;
 pub use error::*;
 pub use factory::WebResourceFactory;
 #[cfg(feature = "test")]
+pub use index::Index;
+#[cfg(feature = "test")]
 pub use world::{MockWorld, __mock_MockWorld_World::__new::Context as MockWorld_NewContext};
 
 /// The `web-resource` preprocessor
