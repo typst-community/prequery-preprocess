@@ -6,15 +6,18 @@ use std::fmt::Write;
 use std::io;
 use std::path::{self, Component, Path, PathBuf};
 use std::process::Stdio;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use clap::Parser;
+use itertools::{Either, Itertools};
 use tokio::fs;
 use tokio::process::Command;
 
 use crate::args::CliArguments;
+use crate::error::MultiplePreprocessorConfigError;
 use crate::manifest::{self, PrequeryManifest};
-use crate::preprocessor::PreprocessorMap;
+use crate::preprocessor::{BoxedPreprocessor, PreprocessorMap};
 use crate::query::{self, Query};
 
 /// The context for executing preprocessors.
@@ -78,6 +81,29 @@ pub trait WorldExt: World {
             }
         }
         Some(out)
+    }
+
+    /// Tries to configure all preprocessors in this manifest. Fails if any preprocessors can not be
+    /// configured.
+    fn get_preprocessors(
+        self: &Arc<Self>,
+        manifest: PrequeryManifest,
+    ) -> Result<Vec<BoxedPreprocessor<Self>>, MultiplePreprocessorConfigError>
+    where
+        Self: Sized,
+    {
+        let (jobs, errors): (Vec<_>, Vec<_>) = manifest.jobs.into_iter().partition_map(|job| {
+            match self.preprocessors().get(self, job) {
+                Ok(value) => Either::Left(value),
+                Err(err) => Either::Right(err),
+            }
+        });
+
+        if !errors.is_empty() {
+            return Err(MultiplePreprocessorConfigError::new(errors));
+        }
+
+        Ok(jobs)
     }
 }
 

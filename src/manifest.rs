@@ -2,17 +2,11 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc;
 
-use itertools::{Either, Itertools};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer};
 use toml::Table;
 use typst_syntax::package::PackageManifest;
-
-use crate::error::MultiplePreprocessorConfigError;
-use crate::preprocessor::BoxedPreprocessor;
-use crate::world::World;
 
 pub use error::*;
 
@@ -70,27 +64,6 @@ impl PrequeryManifest {
             .try_into::<Self>()
             .map_err(Error::from)?;
         Ok(config)
-    }
-
-    /// Tries to configure all preprocessors in this manifest. Fails if any preprocessors can not be
-    /// configured.
-    pub fn get_preprocessors<W: World>(
-        self,
-        world: &Arc<W>,
-    ) -> Result<Vec<BoxedPreprocessor<W>>, MultiplePreprocessorConfigError> {
-        let (jobs, errors): (Vec<_>, Vec<_>) =
-            self.jobs.into_iter().partition_map(|job| {
-                match world.preprocessors().get(world, job) {
-                    Ok(value) => Either::Left(value),
-                    Err(err) => Either::Right(err),
-                }
-            });
-
-        if !errors.is_empty() {
-            return Err(MultiplePreprocessorConfigError::new(errors));
-        }
-
-        Ok(jobs)
     }
 }
 
