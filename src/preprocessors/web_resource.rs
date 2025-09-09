@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use derive_more::Debug;
 use tokio::sync::Mutex;
 
-use crate::preprocessor::{self, Preprocessor};
+use crate::preprocessor::{DynError, Preprocessor};
 use crate::query::{self, Query};
 use crate::utils;
 use crate::world::WorldExt as _;
@@ -209,10 +209,8 @@ impl<W: World> Preprocessor<W::MainWorld> for Arc<WebResource<W>> {
         &self.name
     }
 
-    async fn run(&mut self) -> preprocessor::ExecutionResult<()> {
-        self.run_impl()
-            .await
-            .map_err(preprocessor::ExecutionError::new)?;
+    async fn run(&mut self) -> Result<(), DynError> {
+        self.run_impl().await.map_err(Box::new)?;
         Ok(())
     }
 }

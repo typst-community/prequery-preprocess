@@ -41,7 +41,7 @@ pub async fn run(world: impl World) -> Result<()> {
                 eprintln!("[{}] job failed: {error:?}", job.name());
             }
         }
-        result.map_err(|error| (job.name().to_string(), error))
+        result.map_err(|error| (job.name().to_string(), error.into()))
     }
 
     let jobs = jobs

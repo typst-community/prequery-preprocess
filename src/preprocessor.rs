@@ -4,7 +4,9 @@ use async_trait::async_trait;
 
 mod factory;
 
-pub use error::{ConfigError, ConfigResult, ExecutionError, ExecutionResult, ManifestError};
+pub use error::{
+    ConfigError, ConfigResult, DynError, ExecutionError, ExecutionResult, ManifestError,
+};
 #[cfg(feature = "test")]
 pub use factory::MockPreprocessorDefinition;
 pub use factory::{PreprocessorDefinition, PreprocessorFactory, PreprocessorMap};
@@ -19,7 +21,7 @@ pub trait Preprocessor<W: World> {
     fn name(&self) -> &str;
 
     /// Executes this preprocessor
-    async fn run(&mut self) -> ExecutionResult<()>;
+    async fn run(&mut self) -> Result<(), DynError>;
 }
 
 /// A dynamically dispatched, boxed preprocessor
@@ -31,6 +33,9 @@ mod error {
 
     use thiserror::Error;
     use tokio::task::JoinError;
+
+    /// A boxed, dynamically typed error that is produced by a specific preprocessor
+    pub type DynError = Box<dyn Error + Send + Sync + 'static>;
 
     /// A problem with the preprocessor's configuration.
     #[derive(Error, Debug)]
@@ -49,7 +54,7 @@ mod error {
     pub struct ManifestError {
         kind: Cow<'static, str>,
         #[source]
-        source: Box<dyn Error + Send + Sync + 'static>,
+        source: DynError,
     }
 
     impl ManifestError {
@@ -65,17 +70,10 @@ mod error {
     pub enum ExecutionError {
         /// The job failed for preprocessor-specific reasons
         #[error("the job did not execute successfully")]
-        Execution(#[source] Box<dyn Error + Send + Sync + 'static>),
+        Execution(#[from] DynError),
         /// An error while waiting for the job to finish
         #[error("waiting for a job failed")]
         Join(#[from] JoinError),
-    }
-
-    impl ExecutionError {
-        /// Creates a new execution error from a specific preprocessor's error
-        pub fn new<E: Error + Send + Sync + 'static>(source: E) -> Self {
-            Self::Execution(Box::new(source))
-        }
     }
 
     /// A result with a config error in it
