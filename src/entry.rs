@@ -1,5 +1,6 @@
 //! Contains the executable's entry point
 
+use std::process::exit;
 use std::sync::Arc;
 
 use crate::error::{MultiplePreprocessorExecutionError, Result};
@@ -10,7 +11,14 @@ use crate::world::{DefaultWorld, World, WorldExt};
 /// then executes the jobs.
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    run(DefaultWorld::new()).await
+    let result = run(DefaultWorld::new()).await;
+    let Err(error) = result else {
+        return Ok(());
+    };
+
+    eprintln!("{}", error);
+
+    exit(1);
 }
 
 /// Entry point; takes a World and executes preprocessors according to the contained data.
