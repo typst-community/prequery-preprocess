@@ -50,7 +50,7 @@ mod error {
 
     /// A problem with the preprocessor's configuration
     #[derive(Error, Debug)]
-    #[error("the job of kind `{kind}` could was configured incorrectly")]
+    #[error("the job of kind `{kind}` was configured incorrectly")]
     pub struct ManifestError {
         kind: Cow<'static, str>,
         #[source]

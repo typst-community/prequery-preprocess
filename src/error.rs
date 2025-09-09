@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::manifest;
 use crate::preprocessor;
-use crate::reporting::ErrorExt;
+use crate::reporting::{ErrorExt, WriteExt};
 
 /// Indicates that the query config is not valid for web-resource
 #[derive(Error, Debug)]
@@ -37,10 +37,14 @@ impl MultiplePreprocessorConfigError {
 
 impl fmt::Display for MultiplePreprocessorConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "at least one job's configuration failed:")?;
+        use fmt::Write;
+
+        let mut w = f.hanging_indent("  ");
+        write!(w, "at least one job's configuration failed:")?;
         for (name, error) in &self.errors {
-            writeln!(f)?;
-            write!(f, "  [{name}] {}", error.error_chain())?;
+            writeln!(w)?;
+            let mut w = w.hanging_indent("  ");
+            write!(w, "[{name}] {}", error.error_chain())?;
         }
         Ok(())
     }
@@ -61,10 +65,14 @@ impl MultiplePreprocessorExecutionError {
 
 impl fmt::Display for MultiplePreprocessorExecutionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "at least one job's execution failed:")?;
+        use fmt::Write;
+
+        let mut w = f.hanging_indent("  ");
+        write!(w, "at least one job's execution failed:")?;
         for (name, error) in &self.errors {
-            writeln!(f)?;
-            write!(f, "  [{name}] {}", error.error_chain())?;
+            writeln!(w)?;
+            let mut w = w.hanging_indent("  ");
+            write!(w, "[{name}] {}", error.error_chain())?;
         }
         Ok(())
     }
