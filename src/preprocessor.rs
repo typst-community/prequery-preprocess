@@ -69,7 +69,7 @@ mod error {
     #[derive(Error, Debug)]
     pub enum ExecutionError {
         /// The job failed for preprocessor-specific reasons
-        #[error("the job did not execute successfully")]
+        #[error(transparent)]
         Execution(#[from] DynError),
         /// An error while waiting for the job to finish
         #[error("waiting for a job failed")]

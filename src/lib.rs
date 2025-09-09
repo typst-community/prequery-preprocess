@@ -8,6 +8,7 @@ pub mod manifest;
 pub mod preprocessor;
 mod preprocessors;
 pub mod query;
+mod reporting;
 mod utils;
 pub mod world;
 

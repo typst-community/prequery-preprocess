@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::error::{MultiplePreprocessorExecutionError, Result};
 use crate::preprocessor::{ExecutionError, Preprocessor};
+use crate::reporting::ErrorExt;
 use crate::utils;
 use crate::world::{DefaultWorld, World, WorldExt};
 
@@ -17,7 +18,7 @@ pub async fn main() -> Result<()> {
         return Ok(());
     };
 
-    eprintln!("{}", error);
+    eprintln!("{}", error.error_chain());
 
     exit(1);
 }

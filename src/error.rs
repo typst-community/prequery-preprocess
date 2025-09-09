@@ -4,7 +4,9 @@ use std::fmt;
 
 use thiserror::Error;
 
-use crate::{manifest, preprocessor};
+use crate::manifest;
+use crate::preprocessor;
+use crate::reporting::ErrorExt;
 
 /// Indicates that the query config is not valid for web-resource
 #[derive(Error, Debug)]
@@ -38,7 +40,7 @@ impl fmt::Display for MultiplePreprocessorConfigError {
         write!(f, "at least one job's configuration failed:")?;
         for (name, error) in &self.errors {
             writeln!(f)?;
-            write!(f, "  [{name}] {error}")?;
+            write!(f, "  [{name}] {}", error.error_chain())?;
         }
         Ok(())
     }
@@ -62,7 +64,7 @@ impl fmt::Display for MultiplePreprocessorExecutionError {
         write!(f, "at least one job's execution failed:")?;
         for (name, error) in &self.errors {
             writeln!(f)?;
-            write!(f, "  [{name}] {error}")?;
+            write!(f, "  [{name}] {}", error.error_chain())?;
         }
         Ok(())
     }
