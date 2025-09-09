@@ -4,6 +4,7 @@ use std::process::exit;
 use std::sync::Arc;
 
 use crate::error::{MultiplePreprocessorExecutionError, Result};
+use crate::preprocessor::{ExecutionError, Preprocessor};
 use crate::utils;
 use crate::world::{DefaultWorld, World, WorldExt};
 
@@ -27,7 +28,9 @@ pub async fn run(world: impl World) -> Result<()> {
     let config = world.read_typst_toml().await?;
     let jobs = world.get_preprocessors(config)?;
 
-    let jobs = jobs.into_iter().map(|mut job| async move {
+    async fn run_job(
+        mut job: Box<dyn Preprocessor<impl World> + Send>,
+    ) -> Result<(), (String, ExecutionError)> {
         println!("[{}] beginning job...", job.name());
         let result = job.run().await;
         match &result {
@@ -38,9 +41,13 @@ pub async fn run(world: impl World) -> Result<()> {
                 eprintln!("[{}] job failed: {error:?}", job.name());
             }
         }
-        result
-    });
-    let errors = utils::spawn_set(jobs).await;
+        result.map_err(|error| (job.name().to_string(), error))
+    }
+
+    let jobs = jobs
+        .into_iter()
+        .map(|job| (job.name().to_string(), run_job(job)));
+    let errors = utils::spawn_set_with_id(jobs, |name, error| (name, error.into())).await;
 
     if !errors.is_empty() {
         return Err(MultiplePreprocessorExecutionError::new(errors).into());

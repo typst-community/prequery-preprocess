@@ -47,12 +47,12 @@ impl fmt::Display for MultiplePreprocessorConfigError {
 /// One or more preprocessors failed during execution
 #[derive(Error, Debug)]
 pub struct MultiplePreprocessorExecutionError {
-    errors: Vec<preprocessor::ExecutionError>,
+    errors: Vec<(String, preprocessor::ExecutionError)>,
 }
 
 impl MultiplePreprocessorExecutionError {
     /// Creates a new error
-    pub fn new(errors: Vec<preprocessor::ExecutionError>) -> Self {
+    pub fn new(errors: Vec<(String, preprocessor::ExecutionError)>) -> Self {
         Self { errors }
     }
 }
@@ -60,9 +60,9 @@ impl MultiplePreprocessorExecutionError {
 impl fmt::Display for MultiplePreprocessorExecutionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "at least one job's execution failed:")?;
-        for error in &self.errors {
+        for (name, error) in &self.errors {
             writeln!(f)?;
-            write!(f, "  {error}")?;
+            write!(f, "  [{name}] {error}")?;
         }
         Ok(())
     }
