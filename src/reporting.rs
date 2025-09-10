@@ -24,19 +24,19 @@ pub trait WriteExt: fmt::Write {
         }
     }
 
-    fn indent<I: Clone>(&mut self, indent: I) -> IndentWriter<'_, I, I, Self>
-    where
-        I: fmt::Display,
-    {
-        self.indents(indent.clone(), indent)
-    }
+    // fn indent<I: Clone>(&mut self, indent: I) -> IndentWriter<'_, I, I, Self>
+    // where
+    //     I: fmt::Display,
+    // {
+    //     self.indents(indent.clone(), indent)
+    // }
 
-    fn first_line_indent<I>(&mut self, indent: I) -> IndentWriter<'_, I, &'static str, Self>
-    where
-        I: fmt::Display,
-    {
-        self.indents(indent, "")
-    }
+    // fn first_line_indent<I>(&mut self, indent: I) -> IndentWriter<'_, I, &'static str, Self>
+    // where
+    //     I: fmt::Display,
+    // {
+    //     self.indents(indent, "")
+    // }
 
     fn hanging_indent<I>(&mut self, indent: I) -> IndentWriter<'_, &'static str, I, Self>
     where
