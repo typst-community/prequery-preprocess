@@ -12,20 +12,17 @@ use crate::world::{DefaultWorld, World, WorldExt};
 /// Entry point; reads the command line arguments, determines the input files and jobs to run, and
 /// then executes the jobs.
 #[tokio::main]
-pub async fn main() -> Result<()> {
+pub async fn main() {
     let result = run(DefaultWorld::new()).await;
-    let Err(error) = result else {
-        return Ok(());
-    };
-
-    eprintln!("{}", error.error_chain());
-
-    exit(1);
+    if result.is_err() {
+        exit(1);
+    }
 }
 
 /// Entry point; takes a World and executes preprocessors according to the contained data.
 pub async fn run(world: impl World) -> Result<()> {
     let world = Arc::new(world);
+    let mut l = world.log();
     let config = world.read_typst_toml().await?;
     let jobs = world.get_preprocessors(config)?;
 
@@ -51,7 +48,9 @@ pub async fn run(world: impl World) -> Result<()> {
     let errors = utils::spawn_set_with_id(jobs, |name, error| (name, error.into())).await;
 
     if !errors.is_empty() {
-        return Err(MultiplePreprocessorExecutionError::new(errors).into());
+        let error: crate::error::Error = MultiplePreprocessorExecutionError::new(errors).into();
+        log!(l, "{}", error.error_chain());
+        return Err(error);
     }
 
     Ok(())

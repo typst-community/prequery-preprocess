@@ -1,3 +1,4 @@
+use std::io;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -44,6 +45,7 @@ impl WebResourceTest {
         world
             .expect_arguments()
             .return_const(CliArguments::parse_from(args));
+        world.expect_log().returning(io::sink);
         world
             .expect_read_typst_toml()
             .returning(|| PrequeryManifest::parse(manifest));

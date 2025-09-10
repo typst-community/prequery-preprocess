@@ -1,6 +1,9 @@
 #![cfg_attr(not(feature = "test"), warn(missing_docs))]
 //! A tool for processing [prequery](https://typst.app/universe/package/prequery) data in Typst documents.
 
+#[macro_use]
+mod reporting;
+
 pub mod args;
 pub mod entry;
 pub mod error;
@@ -8,7 +11,6 @@ pub mod manifest;
 pub mod preprocessor;
 mod preprocessors;
 pub mod query;
-mod reporting;
 mod utils;
 pub mod world;
 

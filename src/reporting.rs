@@ -2,6 +2,18 @@
 
 use std::error::Error;
 use std::fmt;
+use std::io;
+
+macro_rules! log {
+    ($dst:expr, $($arg:tt)*) => {
+        use ::std::io::Write;
+        ::std::writeln!($dst, $($arg)*).expect("logging should not fail");
+    };
+}
+
+pub trait Log: io::Write + Send + Sync {}
+
+impl<T: io::Write + Send + Sync> Log for T {}
 
 pub trait ErrorExt: Error {
     fn error_chain(&self) -> ErrorChain<&Self> {

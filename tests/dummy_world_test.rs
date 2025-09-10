@@ -1,3 +1,5 @@
+use std::io;
+
 use clap::Parser;
 
 use mockall::predicate::{always, eq};
@@ -47,6 +49,7 @@ async fn run_dummy_preprocessor() -> Result<()> {
             "prequery-preprocess",
             "input.typ",
         ]));
+    world.expect_log().returning(io::sink);
     world.expect_read_typst_toml().returning(|| {
         PrequeryManifest::parse(
             r#"

@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 use crate::preprocessor::{DynError, Preprocessor};
 use crate::query::{self, Query};
 use crate::utils;
-use crate::world::WorldExt as _;
+use crate::world::{World as _, WorldExt as _};
 
 mod error;
 mod factory;
@@ -128,6 +128,8 @@ impl<W: World> WebResource<W> {
     }
 
     async fn download(self: Arc<Self>, resource: Resource) -> Result<(), DownloadError> {
+        let mut l = self.world.main().log();
+
         let name = self.name();
         let Resource { url, path } = &resource;
 
@@ -141,7 +143,7 @@ impl<W: World> WebResource<W> {
                 io::Error::new(io::ErrorKind::PermissionDenied, msg)
             })
             .inspect_err(|error| {
-                println!("[{name}] Can't download to {path_str}: {error}");
+                log!(l, "[{name}] Can't download to {path_str}: {error}");
             })?;
         let path_str = resolved_path.to_string_lossy();
 
@@ -168,14 +170,14 @@ impl<W: World> WebResource<W> {
                 .download(&resolved_path, url)
                 .await
                 .inspect_err(|error| {
-                    println!("[{name}] Downloading to {path_str} failed: {error}");
+                    log!(l, "[{name}] Downloading to {path_str} failed: {error}");
                 })?;
 
             if let Some(index) = &self.index {
                 let mut index = index.lock().await;
                 index.update(resource.clone());
             }
-            println!("[{name}] Downloading to {path_str} finished");
+            log!(l, "[{name}] Downloading to {path_str} finished");
         }
 
         Ok(())
