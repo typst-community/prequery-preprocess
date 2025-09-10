@@ -81,11 +81,11 @@ impl ResourceState {
 
     pub fn print(self, name: &str, url: &str, path: &str) {
         if self.download() {
-            print!("[{name}] Downloading {url} to {path}");
+            print!("[{name}] Downloading to {path}: {url}");
             self.print_reason();
             println!("...");
         } else {
-            print!("[{name}] Downloading of {url} to {path} skipped");
+            print!("[{name}] Downloading to {path} skipped: {url}");
             self.print_reason();
             println!();
         }
@@ -131,11 +131,18 @@ impl<W: World> WebResource<W> {
         let name = self.name();
         let Resource { url, path } = &resource;
 
-        let resolved_path = self.world.main().resolve(path).ok_or_else(|| {
-            let path_str = path.to_string_lossy();
-            let msg = format!("{path_str} is outside the project root");
-            io::Error::new(io::ErrorKind::PermissionDenied, msg)
-        })?;
+        let path_str = path.to_string_lossy();
+        let resolved_path = self
+            .world
+            .main()
+            .resolve(path)
+            .ok_or_else(|| {
+                let msg = format!("{path_str} is outside the project root");
+                io::Error::new(io::ErrorKind::PermissionDenied, msg)
+            })
+            .inspect_err(|error| {
+                println!("[{name}] Can't download to {path_str}: {error}");
+            })?;
         let path_str = resolved_path.to_string_lossy();
 
         let exists = self.world.resource_exists(&resolved_path).await;
@@ -157,20 +164,18 @@ impl<W: World> WebResource<W> {
         state.print(name, url, &path_str);
 
         if state.download() {
-            let result = self.world.download(&resolved_path, url).await;
-            match &result {
-                Ok(()) => {
-                    if let Some(index) = &self.index {
-                        let mut index = index.lock().await;
-                        index.update(resource.clone());
-                    }
-                    println!("[{name}] Downloading {url} to {path_str} finished");
-                }
-                Err(error) => {
-                    println!("[{name}] Downloading {url} to {path_str} failed: {error:?}");
-                }
+            self.world
+                .download(&resolved_path, url)
+                .await
+                .inspect_err(|error| {
+                    println!("[{name}] Downloading to {path_str} failed: {error}");
+                })?;
+
+            if let Some(index) = &self.index {
+                let mut index = index.lock().await;
+                index.update(resource.clone());
             }
-            result?;
+            println!("[{name}] Downloading to {path_str} finished");
         }
 
         Ok(())

@@ -39,7 +39,7 @@ pub async fn run(world: impl World) -> Result<()> {
                 println!("[{}] job finished", job.name());
             }
             Err(error) => {
-                eprintln!("[{}] job failed: {error:?}", job.name());
+                eprintln!("[{}] job failed: {error}", job.name());
             }
         }
         result.map_err(|error| (job.name().to_string(), error.into()))
