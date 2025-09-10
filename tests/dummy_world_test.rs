@@ -15,15 +15,16 @@ use prequery_preprocess::world::MockWorld;
 #[tokio::test]
 async fn run_dummy_preprocessor() -> Result<()> {
     // dummy preprocessor that is used by the configuration
-    let mut dummy = MockPreprocessorDefinition::new();
+    let mut dummy = MockPreprocessorDefinition::<MockWorld>::new();
     dummy.expect_name().return_const("dummy");
     dummy
         .expect_configure()
         .once()
         .with(always(), eq("test".to_string()), always(), always())
-        .returning(|_world, name, _manifest, _query| {
+        .returning(|world, name, _manifest, _query| {
             // when run, the preprocessor does nothing
             let mut preprocessor = MockPreprocessor::new();
+            preprocessor.expect_world().return_const(world.clone());
             preprocessor.expect_name().return_const(name);
             preprocessor.expect_run().once().returning(|| Ok(()));
             Ok(Box::new(preprocessor))

@@ -1,5 +1,6 @@
 //! The `web-resource` preprocessor
 
+use std::fmt;
 use std::io;
 use std::sync::Arc;
 
@@ -73,22 +74,37 @@ impl ResourceState {
         }
     }
 
-    fn print_reason(self) {
-        if let Some(msg) = self.reason() {
-            print!(" ({msg})");
+    pub fn on<'a>(self, url: &'a str, path: &'a str) -> ResourceAction<'a> {
+        ResourceAction {
+            state: self,
+            url,
+            path,
         }
     }
+}
 
-    pub fn print(self, name: &str, url: &str, path: &str) {
-        if self.download() {
-            print!("[{name}] Downloading to {path}: {url}");
-            self.print_reason();
-            println!("...");
+struct ResourceAction<'a> {
+    state: ResourceState,
+    url: &'a str,
+    path: &'a str,
+}
+
+impl fmt::Display for ResourceAction<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.state.download() {
+            write!(f, "Downloading to {}: {}", self.path, self.url)?;
+            if let Some(reason) = self.state.reason() {
+                write!(f, " ({})", reason)?;
+            }
+            write!(f, "...")?;
         } else {
-            print!("[{name}] Downloading to {path} skipped: {url}");
-            self.print_reason();
-            println!();
+            write!(f, "Downloading to {} skipped: {}", self.path, self.url)?;
+            if let Some(reason) = self.state.reason() {
+                write!(f, " ({})", reason)?;
+            }
         }
+
+        Ok(())
     }
 }
 
@@ -163,7 +179,7 @@ impl<W: World> WebResource<W> {
             ResourceState::Existing
         };
 
-        state.print(name, url, &path_str);
+        log!(l, "[{name}] {}", state.on(url, &path_str));
 
         if state.download() {
             self.world
@@ -212,6 +228,10 @@ impl<W: World> WebResource<W> {
 
 #[async_trait]
 impl<W: World> Preprocessor<W::MainWorld> for Arc<WebResource<W>> {
+    fn world(&self) -> &Arc<W::MainWorld> {
+        self.world.main()
+    }
+
     fn name(&self) -> &str {
         &self.name
     }

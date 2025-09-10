@@ -29,14 +29,15 @@ pub async fn run(world: impl World) -> Result<()> {
     async fn run_job(
         mut job: Box<dyn Preprocessor<impl World> + Send>,
     ) -> Result<(), (String, ExecutionError)> {
-        println!("[{}] beginning job...", job.name());
+        let mut l = job.world().log();
+        log!(l, "[{}] beginning job...", job.name());
         let result = job.run().await;
         match &result {
             Ok(()) => {
-                println!("[{}] job finished", job.name());
+                log!(l, "[{}] job finished", job.name());
             }
             Err(error) => {
-                eprintln!("[{}] job failed: {error}", job.name());
+                log!(l, "[{}] job failed: {error}", job.name());
             }
         }
         result.map_err(|error| (job.name().to_string(), error.into()))

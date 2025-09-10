@@ -1,5 +1,7 @@
 //! APIs for the implementation of preprocessors, and preprocessor management
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
 mod factory;
@@ -17,7 +19,10 @@ use crate::world::World;
 #[cfg_attr(feature = "test", mockall::automock)]
 #[async_trait]
 pub trait Preprocessor<W: World> {
-    /// this preprocessor's name, which normally comes from [Job::name][crate::manifest::Job::name].
+    /// The world this preprocessor works in.
+    fn world(&self) -> &Arc<W>;
+
+    /// This preprocessor's name, which normally comes from [Job::name][crate::manifest::Job::name].
     fn name(&self) -> &str;
 
     /// Executes this preprocessor
