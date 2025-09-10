@@ -3,16 +3,20 @@
 use std::error::Error;
 use std::fmt;
 
-pub trait ErrorExt {
+pub trait ErrorExt: Error {
     fn error_chain(&self) -> ErrorChain<&Self> {
         ErrorChain(self)
     }
 }
 
-impl<T: Error> ErrorExt for T {}
+impl<T: Error + ?Sized> ErrorExt for T {}
 
-pub trait WriteExt {
-    fn indents<F, H>(&mut self, first: F, hanging: H) -> IndentWriter<'_, F, H, Self> {
+pub trait WriteExt: fmt::Write {
+    fn indents<F, H>(&mut self, first: F, hanging: H) -> IndentWriter<'_, F, H, Self>
+    where
+        F: fmt::Display,
+        H: fmt::Display,
+    {
         IndentWriter {
             first: Some(first),
             hanging,
@@ -20,20 +24,29 @@ pub trait WriteExt {
         }
     }
 
-    // fn indent<I: Clone>(&mut self, indent: I) -> IndentWriter<'_, I, I, Self> {
-    //     self.indents(indent.clone(), indent)
-    // }
+    fn indent<I: Clone>(&mut self, indent: I) -> IndentWriter<'_, I, I, Self>
+    where
+        I: fmt::Display,
+    {
+        self.indents(indent.clone(), indent)
+    }
 
-    // fn first_line_indent<I>(&mut self, indent: I) -> IndentWriter<'_, I, &'static str, Self> {
-    //     self.indents(indent, "")
-    // }
+    fn first_line_indent<I>(&mut self, indent: I) -> IndentWriter<'_, I, &'static str, Self>
+    where
+        I: fmt::Display,
+    {
+        self.indents(indent, "")
+    }
 
-    fn hanging_indent<I>(&mut self, indent: I) -> IndentWriter<'_, &'static str, I, Self> {
+    fn hanging_indent<I>(&mut self, indent: I) -> IndentWriter<'_, &'static str, I, Self>
+    where
+        I: fmt::Display,
+    {
         self.indents("", indent)
     }
 }
 
-impl<T: fmt::Write> WriteExt for T {}
+impl<T: fmt::Write + ?Sized> WriteExt for T {}
 
 pub struct ErrorChain<T>(T);
 
