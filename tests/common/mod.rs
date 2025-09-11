@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use clap::Parser;
 
 use mockall::predicate::eq;
