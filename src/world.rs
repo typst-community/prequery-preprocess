@@ -23,7 +23,7 @@ use crate::query::{self, Query};
 use crate::reporting::Log;
 
 /// The context for executing preprocessors.
-#[cfg_attr(feature = "test", mockall::automock(type Logger = io::Sink;))]
+#[cfg_attr(feature = "test", mockall::automock(type Logger = crate::test_utils::VecLog;))]
 #[async_trait]
 pub trait World: Send + Sync + 'static {
     /// The Logger type used by this world

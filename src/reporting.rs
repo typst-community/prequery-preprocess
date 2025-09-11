@@ -4,6 +4,8 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 
+#[macro_export]
+/// Logs preprocessor progress to the given logger
 macro_rules! log {
     ($dst:expr, $($arg:tt)*) => {
         use ::std::io::Write;

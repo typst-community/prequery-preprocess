@@ -1,9 +1,9 @@
-use std::io;
 use std::path::PathBuf;
 
 use clap::Parser;
 
 use mockall::predicate::eq;
+use prequery_preprocess::VecLog;
 use prequery_preprocess::args::CliArguments;
 use prequery_preprocess::entry::run;
 use prequery_preprocess::error::Result;
@@ -36,6 +36,7 @@ impl WebResourceTest {
             world
         });
 
+        let log = VecLog::new();
         let mut world = MainMockWorld::new();
         world.expect_preprocessors().return_const({
             let mut preprocessors = PreprocessorMap::new();
@@ -45,7 +46,7 @@ impl WebResourceTest {
         world
             .expect_arguments()
             .return_const(CliArguments::parse_from(args));
-        world.expect_log().returning(io::sink);
+        world.expect_log().return_const(log);
         world
             .expect_read_typst_toml()
             .returning(|| PrequeryManifest::parse(manifest));

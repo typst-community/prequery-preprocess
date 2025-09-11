@@ -1,16 +1,16 @@
-use std::io;
-
 use clap::Parser;
 
 use mockall::predicate::{always, eq};
+use prequery_preprocess::VecLog;
 use prequery_preprocess::args::CliArguments;
 use prequery_preprocess::entry::run;
 use prequery_preprocess::error::Result;
+use prequery_preprocess::log;
 use prequery_preprocess::manifest::PrequeryManifest;
 use prequery_preprocess::preprocessor::{
     MockPreprocessor, MockPreprocessorDefinition, PreprocessorMap,
 };
-use prequery_preprocess::world::MockWorld;
+use prequery_preprocess::world::{MockWorld, World};
 
 #[tokio::test]
 async fn run_dummy_preprocessor() -> Result<()> {
@@ -22,11 +22,16 @@ async fn run_dummy_preprocessor() -> Result<()> {
         .once()
         .with(always(), eq("test".to_string()), always(), always())
         .returning(|world, name, _manifest, _query| {
-            // when run, the preprocessor does nothing
+            let world = world.clone();
+            // when run, the preprocessor only logs something
             let mut preprocessor = MockPreprocessor::new();
             preprocessor.expect_world().return_const(world.clone());
-            preprocessor.expect_name().return_const(name);
-            preprocessor.expect_run().once().returning(|| Ok(()));
+            preprocessor.expect_name().return_const(name.clone());
+            preprocessor.expect_run().once().returning(move || {
+                let mut l = world.log();
+                log!(l, "[{name}] this is a dummy preprocessor");
+                Ok(())
+            });
             Ok(Box::new(preprocessor))
         });
 
@@ -37,6 +42,7 @@ async fn run_dummy_preprocessor() -> Result<()> {
     dummy2.expect_configure().never();
 
     // mock world that contains the two preprocessors and basic setup
+    let log = VecLog::new();
     let mut world = MockWorld::new();
     world.expect_preprocessors().return_const({
         let mut preprocessors = PreprocessorMap::new();
@@ -50,7 +56,7 @@ async fn run_dummy_preprocessor() -> Result<()> {
             "prequery-preprocess",
             "input.typ",
         ]));
-    world.expect_log().returning(io::sink);
+    world.expect_log().return_const(log.clone());
     world.expect_read_typst_toml().returning(|| {
         PrequeryManifest::parse(
             r#"
@@ -67,5 +73,16 @@ async fn run_dummy_preprocessor() -> Result<()> {
     });
 
     // run the world
-    run(world).await
+    run(world).await?;
+
+    // assert correct logging
+    assert_eq!(
+        log.get_lossy(),
+        "\
+        [test] beginning job...\n\
+        [test] this is a dummy preprocessor\n\
+        [test] job finished\n",
+    );
+
+    Ok(())
 }
