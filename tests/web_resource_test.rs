@@ -18,6 +18,7 @@ use serial_test::serial;
 struct WebResourceTest {
     pub _ctx: MockWorld_NewContext,
     pub world: MainMockWorld,
+    pub log: VecLog,
 }
 
 impl WebResourceTest {
@@ -46,7 +47,7 @@ impl WebResourceTest {
         world
             .expect_arguments()
             .return_const(CliArguments::parse_from(args));
-        world.expect_log().return_const(log);
+        world.expect_log().return_const(log.clone());
         world
             .expect_read_typst_toml()
             .returning(|| PrequeryManifest::parse(manifest));
@@ -56,11 +57,46 @@ impl WebResourceTest {
             .with(eq(query))
             .returning(|_| Ok(query_result.to_vec()));
 
-        Self { _ctx: ctx, world }
+        Self {
+            _ctx: ctx,
+            world,
+            log,
+        }
     }
 
-    pub async fn run(self) -> Result<()> {
-        run(self.world).await
+    pub async fn run(self) -> RunResult {
+        let result = run(self.world).await;
+        let log = self.log;
+        RunResult { result, log }
+    }
+}
+
+#[derive(Debug)]
+#[must_use]
+struct RunResult {
+    result: Result<()>,
+    log: VecLog,
+}
+
+#[derive(Debug)]
+#[must_use]
+struct RunResultLog(VecLog);
+
+impl RunResult {
+    pub fn expect_ok(self, msg: &str) -> RunResultLog {
+        self.result.as_ref().expect(msg);
+        RunResultLog(self.log)
+    }
+
+    pub fn expect_err(self, msg: &str) -> RunResultLog {
+        self.result.as_ref().expect_err(msg);
+        RunResultLog(self.log)
+    }
+}
+
+impl RunResultLog {
+    pub fn expect_log(self, log: &str) {
+        assert_eq!(self.0.get_lossy(), log);
     }
 }
 
@@ -68,7 +104,7 @@ impl WebResourceTest {
 /// No downloads should happen, and no index should be saved.
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_no_resources_no_index() -> Result<()> {
+async fn run_web_resource_no_resources_no_index() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -100,13 +136,19 @@ async fn run_web_resource_no_resources_no_index() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] job finished\n",
+    );
 }
 
 /// Run the web resource preprocessor without any resources and an index.
 /// No downloads should happen, but the index should be saved.
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_no_resources_with_index() -> Result<()> {
+async fn run_web_resource_no_resources_with_index() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -146,13 +188,19 @@ async fn run_web_resource_no_resources_with_index() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] job finished\n",
+    );
 }
 
 /// Run the web resource preprocessor with one resource and no index.
 /// The resource is outside the root and should not be downloaded.
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_download_outside_root() -> Result<()> {
+async fn run_web_resource_download_outside_root() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -183,16 +231,25 @@ async fn run_web_resource_download_outside_root() -> Result<()> {
     )
     .run()
     .await
-    .expect_err("access to file outside root should be denied");
-
-    Ok(())
+    .expect_err("access to file outside root should be denied")
+    .expect_log(
+        "\
+[download] beginning job...
+[download] Can't download to ../example.png: ../example.png is outside the project root
+[download] job failed: at least one download failed:
+  ../example.png is outside the project root
+at least one job's execution failed:
+  [download] at least one download failed:
+      ../example.png is outside the project root
+",
+    );
 }
 
 /// Run the web resource preprocessor with one resource and no index.
 /// The resource does not exist locally and should be downloaded.
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_no_index_missing() -> Result<()> {
+async fn run_web_resource_no_index_missing() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -234,13 +291,21 @@ async fn run_web_resource_no_index_missing() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] Downloading to assets/example.png: https://example.com/example.png...\n\
+        [download] Downloading to assets/example.png finished\n\
+        [download] job finished\n",
+    );
 }
 
 /// Run the web resource preprocessor with one resource and no index.
 /// The resource exists locally and should not be downloaded.
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_no_index_existing() -> Result<()> {
+async fn run_web_resource_no_index_existing() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -275,13 +340,20 @@ async fn run_web_resource_no_index_existing() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] Downloading to assets/example.png skipped: https://example.com/example.png (file exists)\n\
+        [download] job finished\n",
+    );
 }
 
 /// Run the web resource preprocessor with one resource and no index.
 /// The resource exists locally and should be re-downloaded according to the manifest.
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_no_index_existing_forced() -> Result<()> {
+async fn run_web_resource_no_index_existing_forced() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -324,6 +396,14 @@ async fn run_web_resource_no_index_existing_forced() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] Downloading to assets/example.png: https://example.com/example.png (overwrite of existing files was forced)...\n\
+        [download] Downloading to assets/example.png finished\n\
+        [download] job finished\n",
+    );
 }
 
 /// Run the web resource preprocessor with one resource and an index.
@@ -331,7 +411,7 @@ async fn run_web_resource_no_index_existing_forced() -> Result<()> {
 /// The index should be saved with the downloaded resource in it.
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_with_index_missing() -> Result<()> {
+async fn run_web_resource_with_index_missing() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -388,6 +468,14 @@ async fn run_web_resource_with_index_missing() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] Downloading to assets/example.png: https://example.com/example.png...\n\
+        [download] Downloading to assets/example.png finished\n\
+        [download] job finished\n",
+    );
 }
 
 /// Run the web resource preprocessor with one resource and an index.
@@ -395,7 +483,7 @@ async fn run_web_resource_with_index_missing() -> Result<()> {
 /// The index should be saved with the downloaded resource in it (no change).
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_with_index_existing() -> Result<()> {
+async fn run_web_resource_with_index_existing() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -452,6 +540,13 @@ async fn run_web_resource_with_index_existing() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] Downloading to assets/example.png skipped: https://example.com/example.png (file exists)\n\
+        [download] job finished\n",
+    );
 }
 
 /// Run the web resource preprocessor with one resource and an index.
@@ -459,7 +554,7 @@ async fn run_web_resource_with_index_existing() -> Result<()> {
 /// The index should be saved with the downloaded resource in it (no change).
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_with_index_existing_forced() -> Result<()> {
+async fn run_web_resource_with_index_existing_forced() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -524,6 +619,14 @@ async fn run_web_resource_with_index_existing_forced() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] Downloading to assets/example.png: https://example.com/example.png (overwrite of existing files was forced)...\n\
+        [download] Downloading to assets/example.png finished\n\
+        [download] job finished\n",
+    );
 }
 
 /// Run the web resource preprocessor with one resource and an index.
@@ -531,7 +634,7 @@ async fn run_web_resource_with_index_existing_forced() -> Result<()> {
 /// The index should be saved with the downloaded resource in it (changed URL).
 #[tokio::test]
 #[serial(web_resource)]
-async fn run_web_resource_with_index_outdated() -> Result<()> {
+async fn run_web_resource_with_index_outdated() {
     WebResourceTest::new(
         &["prequery-preprocess", "input.typ"],
         r#"
@@ -595,4 +698,12 @@ async fn run_web_resource_with_index_outdated() -> Result<()> {
     )
     .run()
     .await
+    .expect_ok("download job should succeed")
+    .expect_log(
+        "\
+        [download] beginning job...\n\
+        [download] Downloading to assets/example.png: https://example.com/example.png (URL has changed)...\n\
+        [download] Downloading to assets/example.png finished\n\
+        [download] job finished\n",
+    );
 }
