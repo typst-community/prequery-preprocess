@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A preprocessor for prequery metadata embedded in Typst documents."
 authors = ["Clemens Koza <https://github.com/SillyFreak/>"]
 edition = "2024"
+homepage = "https://typst-community.github.io/prequery/"
 repository = "https://github.com/typst-community/prequery-preprocess"
 license = "MIT"
 categories = ["command-line-utilities"]
