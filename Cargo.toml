@@ -1,6 +1,6 @@
 [package]
 name = "prequery-preprocess"
-version = "0.1.0"
+version = "0.2.0"
 description = "A preprocessor for prequery metadata embedded in Typst documents."
 authors = ["Clemens Koza <https://github.com/SillyFreak/>"]
 edition = "2024"
