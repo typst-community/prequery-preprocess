@@ -1,0 +1,8 @@
+[download] beginning job...
+[download] Downloading to assets/example.png: https://example.com/exampl.png...
+[download] Downloading to assets/example.png failed: not found
+[download] job failed: at least one download failed:
+  not found
+at least one job's execution failed:
+  [download] at least one download failed:
+      not found

@@ -1,3 +1,4 @@
+use std::io;
 use std::path::PathBuf;
 
 use mockall::predicate::eq;
@@ -133,6 +134,56 @@ async fn run_web_resource_no_resources_with_index() {
     .await
     .expect_ok("download job should succeed")
     .expect_log(include_str!("web-resource/no-resources.txt"));
+}
+
+/// Run the web resource preprocessor with one resource and no index.
+/// The resource is accessible, leading to the download to fail.
+#[tokio::test]
+#[serial(web_resource)]
+async fn run_web_resource_download_not_found() {
+    WebResourceTest::new(
+        &["prequery-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "download"
+        kind = "web-resource"
+        "#,
+        Query {
+            selector: "<web-resource>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"url": "https://example.com/exampl.png", "path": "assets/example.png"}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            world
+                .expect_resource_exists()
+                .once()
+                .with(eq(PathBuf::from("assets/example.png")))
+                .return_const(false);
+            world
+                .expect_download()
+                .once()
+                .with(
+                    eq(PathBuf::from("assets/example.png")),
+                    eq("https://example.com/exampl.png"),
+                )
+                .returning(|_, _| Err(io::Error::new(io::ErrorKind::NotFound, "not found").into()));
+        },
+    )
+    .run()
+    .await
+    .expect_err("download job should fail")
+    .expect_log(include_str!("web-resource/fail-io-error.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and no index.
