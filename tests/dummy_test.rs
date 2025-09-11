@@ -13,7 +13,7 @@ use prequery_preprocess::preprocessor::{
 use prequery_preprocess::world::{MockWorld, World};
 
 #[tokio::test]
-async fn run_dummy_preprocessor() -> Result<()> {
+async fn run_dummy() -> Result<()> {
     // dummy preprocessor that is used by the configuration
     let mut dummy = MockPreprocessorDefinition::<MockWorld>::new();
     dummy.expect_name().return_const("dummy");
@@ -76,13 +76,7 @@ async fn run_dummy_preprocessor() -> Result<()> {
     run(world).await?;
 
     // assert correct logging
-    assert_eq!(
-        log.get_lossy(),
-        "\
-        [test] beginning job...\n\
-        [test] this is a dummy preprocessor\n\
-        [test] job finished\n",
-    );
+    assert_eq!(log.get_lossy(), include_str!("dummy/run.txt"));
 
     Ok(())
 }

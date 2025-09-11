@@ -1,0 +1,3 @@
+[test] beginning job...
+[test] this is a dummy preprocessor
+[test] job finished

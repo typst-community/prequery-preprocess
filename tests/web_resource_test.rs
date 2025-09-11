@@ -137,11 +137,7 @@ async fn run_web_resource_no_resources_no_index() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/no-resources.txt"));
 }
 
 /// Run the web resource preprocessor without any resources and an index.
@@ -189,11 +185,7 @@ async fn run_web_resource_no_resources_with_index() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/no-resources.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and no index.
@@ -232,17 +224,7 @@ async fn run_web_resource_download_outside_root() {
     .run()
     .await
     .expect_err("access to file outside root should be denied")
-    .expect_log(
-        "\
-[download] beginning job...
-[download] Can't download to ../example.png: ../example.png is outside the project root
-[download] job failed: at least one download failed:
-  ../example.png is outside the project root
-at least one job's execution failed:
-  [download] at least one download failed:
-      ../example.png is outside the project root
-",
-    );
+    .expect_log(include_str!("web-resource/fail-outside-root.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and no index.
@@ -292,13 +274,7 @@ async fn run_web_resource_no_index_missing() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] Downloading to assets/example.png: https://example.com/example.png...\n\
-        [download] Downloading to assets/example.png finished\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/success.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and no index.
@@ -341,12 +317,7 @@ async fn run_web_resource_no_index_existing() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] Downloading to assets/example.png skipped: https://example.com/example.png (file exists)\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/success-existing.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and no index.
@@ -397,13 +368,7 @@ async fn run_web_resource_no_index_existing_forced() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] Downloading to assets/example.png: https://example.com/example.png (overwrite of existing files was forced)...\n\
-        [download] Downloading to assets/example.png finished\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/success-forced.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and an index.
@@ -469,13 +434,7 @@ async fn run_web_resource_with_index_missing() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] Downloading to assets/example.png: https://example.com/example.png...\n\
-        [download] Downloading to assets/example.png finished\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/success.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and an index.
@@ -541,12 +500,7 @@ async fn run_web_resource_with_index_existing() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] Downloading to assets/example.png skipped: https://example.com/example.png (file exists)\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/success-existing.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and an index.
@@ -620,13 +574,7 @@ async fn run_web_resource_with_index_existing_forced() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] Downloading to assets/example.png: https://example.com/example.png (overwrite of existing files was forced)...\n\
-        [download] Downloading to assets/example.png finished\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/success-forced.txt"));
 }
 
 /// Run the web resource preprocessor with one resource and an index.
@@ -699,11 +647,5 @@ async fn run_web_resource_with_index_outdated() {
     .run()
     .await
     .expect_ok("download job should succeed")
-    .expect_log(
-        "\
-        [download] beginning job...\n\
-        [download] Downloading to assets/example.png: https://example.com/example.png (URL has changed)...\n\
-        [download] Downloading to assets/example.png finished\n\
-        [download] job finished\n",
-    );
+    .expect_log(include_str!("web-resource/success-changed.txt"));
 }
