@@ -95,8 +95,52 @@ impl RunResult {
 }
 
 impl RunResultLog {
-    pub fn expect_log(self, log: &str) {
-        assert_eq!(self.0.get_lossy(), log);
+    fn log_eq(output: &str, expected: &str) -> bool {
+        let mut output = output.chars();
+        let mut expected = expected.chars();
+
+        let mut ch_out = output.next();
+        let mut ch_exp = expected.next();
+        loop {
+            // `expected` is read from a file, and may be checked out by Git using platform-specific
+            // line endings. The path separator in expected output is always `/`.
+            // `output` is produced at runtime. Rust's `writeln!()` and related macros will always
+            // use `\n`, but paths may contain `\\` instead of `/`.
+            match (ch_out, ch_exp) {
+                // both strings have been consumed
+                (None, None) => return true,
+                // one string has been consumed, the other is still going
+                (None, Some(_)) | (Some(_), None) => return false,
+                // both strings continue with the same character
+                (Some(a), Some(b)) if a == b => {}
+                // the difference is a path separator
+                // (or a false positive, but we accept this possibility)
+                (Some('\\'), Some('/')) => {}
+                // the difference is a line separator
+                (Some('\n'), Some('\r')) => {
+                    let ch_exp = expected.next();
+                    if ch_exp != Some('\n') {
+                        // not actually a line separator difference
+                        return false;
+                    }
+                }
+                // it's a real difference
+                (Some(_), Some(_)) => {
+                    return false;
+                }
+            }
+
+            ch_out = output.next();
+            ch_exp = expected.next();
+        }
+    }
+
+    pub fn expect_log(self, expected: &str) {
+        let output = self.0.get_lossy();
+        assert!(
+            Self::log_eq(&output, expected),
+            "{output}\nnot equal to\n\n{expected}"
+        );
     }
 }
 
