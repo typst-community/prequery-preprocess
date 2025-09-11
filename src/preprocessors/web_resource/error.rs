@@ -5,6 +5,7 @@ use thiserror::Error;
 use tokio::task::JoinError;
 
 use crate::query;
+use crate::reporting::{ErrorExt, WriteExt};
 
 /// An error in the configuration of the job's query
 #[derive(Error, Debug)]
@@ -49,10 +50,10 @@ pub enum IndexError {
 #[derive(Error, Debug)]
 pub enum DownloadError {
     /// A network error during the download
-    #[error("network I/O error during download")]
+    #[error(transparent)]
     Network(#[from] reqwest::Error),
     /// An error accessing the local file for the resource
-    #[error("file I/O error during download")]
+    #[error(transparent)]
     File(#[from] io::Error),
     /// An error while waiting for the download to finish
     #[error("waiting for a download task failed")]
@@ -74,10 +75,13 @@ impl MultipleDownloadError {
 
 impl fmt::Display for MultipleDownloadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "at least one download failed:")?;
+        use fmt::Write;
+
+        let mut w = f.hanging_indent("  ");
+        write!(w, "at least one download failed:")?;
         for error in &self.errors {
-            writeln!(f)?;
-            write!(f, "  {error}")?;
+            writeln!(w)?;
+            write!(w, "{}", error.error_chain())?;
         }
         Ok(())
     }

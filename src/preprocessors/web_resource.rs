@@ -1,5 +1,6 @@
 //! The `web-resource` preprocessor
 
+use std::fmt;
 use std::io;
 use std::sync::Arc;
 
@@ -7,10 +8,10 @@ use async_trait::async_trait;
 use derive_more::Debug;
 use tokio::sync::Mutex;
 
-use crate::preprocessor::{self, Preprocessor};
+use crate::preprocessor::{DynError, Preprocessor};
 use crate::query::{self, Query};
 use crate::utils;
-use crate::world::WorldExt as _;
+use crate::world::{World as _, WorldExt as _};
 
 mod error;
 mod factory;
@@ -73,22 +74,37 @@ impl ResourceState {
         }
     }
 
-    fn print_reason(self) {
-        if let Some(msg) = self.reason() {
-            print!(" ({msg})");
+    pub fn on<'a>(self, url: &'a str, path: &'a str) -> ResourceAction<'a> {
+        ResourceAction {
+            state: self,
+            url,
+            path,
         }
     }
+}
 
-    pub fn print(self, name: &str, url: &str, path: &str) {
-        if self.download() {
-            print!("[{name}] Downloading {url} to {path}");
-            self.print_reason();
-            println!("...");
+struct ResourceAction<'a> {
+    state: ResourceState,
+    url: &'a str,
+    path: &'a str,
+}
+
+impl fmt::Display for ResourceAction<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.state.download() {
+            write!(f, "Downloading to {}: {}", self.path, self.url)?;
+            if let Some(reason) = self.state.reason() {
+                write!(f, " ({})", reason)?;
+            }
+            write!(f, "...")?;
         } else {
-            print!("[{name}] Downloading of {url} to {path} skipped");
-            self.print_reason();
-            println!();
+            write!(f, "Downloading to {} skipped: {}", self.path, self.url)?;
+            if let Some(reason) = self.state.reason() {
+                write!(f, " ({})", reason)?;
+            }
         }
+
+        Ok(())
     }
 }
 
@@ -128,14 +144,23 @@ impl<W: World> WebResource<W> {
     }
 
     async fn download(self: Arc<Self>, resource: Resource) -> Result<(), DownloadError> {
+        let mut l = self.world.main().log();
+
         let name = self.name();
         let Resource { url, path } = &resource;
 
-        let resolved_path = self.world.main().resolve(path).ok_or_else(|| {
-            let path_str = path.to_string_lossy();
-            let msg = format!("{path_str} is outside the project root");
-            io::Error::new(io::ErrorKind::PermissionDenied, msg)
-        })?;
+        let path_str = path.to_string_lossy();
+        let resolved_path = self
+            .world
+            .main()
+            .resolve(path)
+            .ok_or_else(|| {
+                let msg = format!("{path_str} is outside the project root");
+                io::Error::new(io::ErrorKind::PermissionDenied, msg)
+            })
+            .inspect_err(|error| {
+                log!(l, "[{name}] Can't download to {path_str}: {error}");
+            })?;
         let path_str = resolved_path.to_string_lossy();
 
         let exists = self.world.resource_exists(&resolved_path).await;
@@ -154,23 +179,21 @@ impl<W: World> WebResource<W> {
             ResourceState::Existing
         };
 
-        state.print(name, url, &path_str);
+        log!(l, "[{name}] {}", state.on(url, &path_str));
 
         if state.download() {
-            let result = self.world.download(&resolved_path, url).await;
-            match &result {
-                Ok(()) => {
-                    if let Some(index) = &self.index {
-                        let mut index = index.lock().await;
-                        index.update(resource.clone());
-                    }
-                    println!("[{name}] Downloading {url} to {path_str} finished");
-                }
-                Err(error) => {
-                    println!("[{name}] Downloading {url} to {path_str} failed: {error:?}");
-                }
+            self.world
+                .download(&resolved_path, url)
+                .await
+                .inspect_err(|error| {
+                    log!(l, "[{name}] Downloading to {path_str} failed: {error}");
+                })?;
+
+            if let Some(index) = &self.index {
+                let mut index = index.lock().await;
+                index.update(resource.clone());
             }
-            result?;
+            log!(l, "[{name}] Downloading to {path_str} finished");
         }
 
         Ok(())
@@ -205,14 +228,16 @@ impl<W: World> WebResource<W> {
 
 #[async_trait]
 impl<W: World> Preprocessor<W::MainWorld> for Arc<WebResource<W>> {
+    fn world(&self) -> &Arc<W::MainWorld> {
+        self.world.main()
+    }
+
     fn name(&self) -> &str {
         &self.name
     }
 
-    async fn run(&mut self) -> preprocessor::ExecutionResult<()> {
-        self.run_impl()
-            .await
-            .map_err(preprocessor::ExecutionError::new)?;
+    async fn run(&mut self) -> Result<(), DynError> {
+        self.run_impl().await.map_err(Box::new)?;
         Ok(())
     }
 }

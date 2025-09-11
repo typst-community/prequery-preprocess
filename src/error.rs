@@ -4,7 +4,9 @@ use std::fmt;
 
 use thiserror::Error;
 
-use crate::{manifest, preprocessor};
+use crate::manifest;
+use crate::preprocessor;
+use crate::reporting::{ErrorExt, WriteExt};
 
 /// Indicates that the query config is not valid for web-resource
 #[derive(Error, Debug)]
@@ -35,10 +37,14 @@ impl MultiplePreprocessorConfigError {
 
 impl fmt::Display for MultiplePreprocessorConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "at least one job's configuration failed:")?;
+        use fmt::Write;
+
+        let mut w = f.hanging_indent("  ");
+        write!(w, "at least one job's configuration failed:")?;
         for (name, error) in &self.errors {
-            writeln!(f)?;
-            write!(f, "  [{name}] {error}")?;
+            writeln!(w)?;
+            let mut w = w.hanging_indent("  ");
+            write!(w, "[{name}] {}", error.error_chain())?;
         }
         Ok(())
     }
@@ -47,22 +53,26 @@ impl fmt::Display for MultiplePreprocessorConfigError {
 /// One or more preprocessors failed during execution
 #[derive(Error, Debug)]
 pub struct MultiplePreprocessorExecutionError {
-    errors: Vec<preprocessor::ExecutionError>,
+    errors: Vec<(String, preprocessor::ExecutionError)>,
 }
 
 impl MultiplePreprocessorExecutionError {
     /// Creates a new error
-    pub fn new(errors: Vec<preprocessor::ExecutionError>) -> Self {
+    pub fn new(errors: Vec<(String, preprocessor::ExecutionError)>) -> Self {
         Self { errors }
     }
 }
 
 impl fmt::Display for MultiplePreprocessorExecutionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "at least one job's execution failed:")?;
-        for error in &self.errors {
-            writeln!(f)?;
-            write!(f, "  {error}")?;
+        use fmt::Write;
+
+        let mut w = f.hanging_indent("  ");
+        write!(w, "at least one job's execution failed:")?;
+        for (name, error) in &self.errors {
+            writeln!(w)?;
+            let mut w = w.hanging_indent("  ");
+            write!(w, "[{name}] {}", error.error_chain())?;
         }
         Ok(())
     }

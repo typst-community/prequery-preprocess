@@ -20,16 +20,25 @@ use crate::error::MultiplePreprocessorConfigError;
 use crate::manifest::{self, PrequeryManifest};
 use crate::preprocessor::{BoxedPreprocessor, PreprocessorMap};
 use crate::query::{self, Query};
+use crate::reporting::Log;
 
 /// The context for executing preprocessors.
-#[cfg_attr(feature = "test", mockall::automock)]
+#[cfg_attr(feature = "test", mockall::automock(type Logger = crate::test_utils::VecLog;))]
 #[async_trait]
 pub trait World: Send + Sync + 'static {
+    /// The Logger type used by this world
+    type Logger: Log;
+
     /// Map of preprocessors existing in this World
     fn preprocessors(&self) -> &PreprocessorMap<Self>;
 
     /// The arguments given to the invocation
     fn arguments(&self) -> &CliArguments;
+
+    /// The log to which to write progress updates and errors.
+    /// This method returns an owned value; usually it will actually be a _handle_ to the actual
+    /// logger.
+    fn log(&self) -> Self::Logger;
 
     /// Reads the `typst.toml` file that is closest to the input file.
     async fn read_typst_toml(&self) -> manifest::Result<PrequeryManifest>;
@@ -181,12 +190,18 @@ impl DefaultWorld {
 
 #[async_trait]
 impl World for DefaultWorld {
+    type Logger = io::Stderr;
+
     fn preprocessors(&self) -> &PreprocessorMap<Self> {
         &self.preprocessors
     }
 
     fn arguments(&self) -> &CliArguments {
         &self.arguments
+    }
+
+    fn log(&self) -> Self::Logger {
+        io::stderr()
     }
 
     async fn read_typst_toml(&self) -> manifest::Result<PrequeryManifest> {

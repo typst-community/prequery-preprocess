@@ -1,0 +1,3 @@
+[download] beginning job...
+[download] Downloading to assets/example.png skipped: https://example.com/example.png (file exists)
+[download] job finished
