@@ -1,0 +1,243 @@
+//! The `shell` preprocessor
+
+use std::fmt;
+use std::io;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use derive_more::Debug;
+use tokio::sync::Mutex;
+
+use crate::preprocessor::{DynError, Preprocessor};
+use crate::query::{self, Query};
+use crate::utils;
+use crate::world::{World as _, WorldExt as _};
+
+mod error;
+mod factory;
+#[cfg(not(feature = "test"))]
+mod index;
+#[cfg(feature = "test")]
+pub mod index;
+mod manifest;
+mod query_data;
+mod world;
+
+use index::*;
+use manifest::*;
+use query_data::*;
+use world::World;
+
+pub use error::*;
+pub use factory::ShellFactory;
+#[cfg(feature = "test")]
+pub use world::{__mock_MockWorld_World::__new::Context as MockWorld_NewContext, MockWorld};
+
+/// The `shell` preprocessor
+#[derive(Debug)]
+pub struct Shell<W: World> {
+    #[debug(skip)]
+    world: Arc<W>,
+    name: String,
+    manifest: Manifest,
+    index: Option<Mutex<Index>>,
+    query: Query,
+}
+
+/// The state of the file: if and how the existing file corresponds to the desired web resource.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResourceState {
+    /// No local file exists.
+    Missing,
+    /// A re-download is forced despite the file existing.
+    Forced,
+    /// The file seems to be up-to-date: the URL hasn't changed, or no index is kept.
+    Existing,
+    /// The file seems is not up-to-date: the URL has changed according to the index.
+    ChangedResource,
+}
+
+impl ResourceState {
+    pub fn download(self) -> bool {
+        match self {
+            Self::Missing | Self::Forced | Self::ChangedResource => true,
+            Self::Existing => false,
+        }
+    }
+
+    pub fn reason(self) -> Option<&'static str> {
+        match self {
+            Self::Missing => None,
+            Self::Forced => Some("overwrite of existing files was forced"),
+            Self::ChangedResource => Some("URL has changed"),
+            Self::Existing => Some("file exists"),
+        }
+    }
+
+    pub fn on<'a>(self, url: &'a str, path: &'a str) -> ResourceAction<'a> {
+        ResourceAction {
+            state: self,
+            url,
+            path,
+        }
+    }
+}
+
+struct ResourceAction<'a> {
+    state: ResourceState,
+    url: &'a str,
+    path: &'a str,
+}
+
+impl fmt::Display for ResourceAction<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.state.download() {
+            write!(f, "Downloading to {}: {}", self.path, self.url)?;
+            if let Some(reason) = self.state.reason() {
+                write!(f, " ({})", reason)?;
+            }
+            write!(f, "...")?;
+        } else {
+            write!(f, "Downloading to {} skipped: {}", self.path, self.url)?;
+            if let Some(reason) = self.state.reason() {
+                write!(f, " ({})", reason)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<W: World> Shell<W> {
+    pub(crate) fn new(
+        world: Arc<W>,
+        name: String,
+        manifest: Manifest,
+        index: Option<Mutex<Index>>,
+        query: Query,
+    ) -> Self {
+        Self {
+            world,
+            name,
+            index,
+            manifest,
+            query,
+        }
+    }
+
+    async fn populate_index(&mut self) -> Result<(), IndexError> {
+        if let Some(path) = self.manifest.index.as_ref() {
+            // an index is in use
+            let index = self.world.read_index(path).await?;
+            self.index = Some(Mutex::new(index));
+        } else {
+            // no index is in use
+            self.index = None;
+        }
+
+        Ok(())
+    }
+
+    async fn query(&self) -> query::Result<QueryData> {
+        let data = self.world.main().query(&self.query).await?;
+        Ok(data)
+    }
+
+    async fn download(self: Arc<Self>, resource: Resource) -> Result<(), DownloadError> {
+        let mut l = self.world.main().log();
+
+        let name = self.name();
+        let Resource { url, path } = &resource;
+
+        let path_str = path.to_string_lossy();
+        let resolved_path = self
+            .world
+            .main()
+            .resolve(path)
+            .ok_or_else(|| {
+                let msg = format!("{path_str} is outside the project root");
+                io::Error::new(io::ErrorKind::PermissionDenied, msg)
+            })
+            .inspect_err(|error| {
+                log!(l, "[{name}] Can't download to {path_str}: {error}");
+            })?;
+        let path_str = resolved_path.to_string_lossy();
+
+        let exists = self.world.resource_exists(&resolved_path).await;
+        let state = if !exists {
+            ResourceState::Missing
+        } else if self.manifest.overwrite {
+            ResourceState::Forced
+        } else if let Some(index) = &self.index {
+            let index = index.lock().await;
+            if index.is_up_to_date(path, url) {
+                ResourceState::Existing
+            } else {
+                ResourceState::ChangedResource
+            }
+        } else {
+            ResourceState::Existing
+        };
+
+        log!(l, "[{name}] {}", state.on(url, &path_str));
+
+        if state.download() {
+            self.world
+                .download(&resolved_path, url)
+                .await
+                .inspect_err(|error| {
+                    log!(l, "[{name}] Downloading to {path_str} failed: {error}");
+                })?;
+
+            if let Some(index) = &self.index {
+                let mut index = index.lock().await;
+                index.update(resource.clone());
+            }
+            log!(l, "[{name}] Downloading to {path_str} finished");
+        }
+
+        Ok(())
+    }
+
+    async fn run_impl(self: &mut Arc<Self>) -> ExecutionResult<()> {
+        Arc::get_mut(self)
+            .expect("shell ref count should be one before starting the processing")
+            .populate_index()
+            .await?;
+
+        let downloads = self
+            .query()
+            .await?
+            .resources
+            .into_iter()
+            .map(|(path, url)| Arc::clone(self).download(Resource { path, url }));
+        let errors = utils::spawn_set(downloads).await;
+
+        if let Some(index) = &self.index {
+            let index = index.lock().await;
+            self.world.write_index(&index).await?;
+        }
+
+        if !errors.is_empty() {
+            return Err(error::MultipleDownloadError::new(errors).into());
+        }
+
+        Ok::<_, ExecutionError>(())
+    }
+}
+
+#[async_trait]
+impl<W: World> Preprocessor<W::MainWorld> for Arc<Shell<W>> {
+    fn world(&self) -> &Arc<W::MainWorld> {
+        self.world.main()
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    async fn run(&mut self) -> Result<(), DynError> {
+        self.run_impl().await.map_err(Box::new)?;
+        Ok(())
+    }
+}

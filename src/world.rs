@@ -149,6 +149,7 @@ impl DefaultWorld {
     pub fn new() -> Self {
         let mut preprocessors = PreprocessorMap::default();
         preprocessors.register(crate::web_resource::WebResourceFactory::default());
+        preprocessors.register(crate::shell::ShellFactory::default());
         let arguments = CliArguments::parse();
         Self {
             preprocessors,
