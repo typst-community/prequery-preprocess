@@ -46,39 +46,39 @@ pub enum IndexError {
     Write(#[from] toml::ser::Error),
 }
 
-/// An error during downloading a resource from the web
+/// An error while executing a shell command
 #[derive(Error, Debug)]
-pub enum DownloadError {
-    /// A network error during the download
-    #[error(transparent)]
-    Network(#[from] reqwest::Error),
-    /// An error accessing the local file for the resource
+pub enum CommandError {
+    /// An error accessing the local file for the command result
     #[error(transparent)]
     File(#[from] io::Error),
-    /// An error while waiting for the download to finish
-    #[error("waiting for a download task failed")]
+    /// The command input or output was not valid
+    #[error("command input or output was not valid JSON or did not fit the expected format")]
+    Json(#[from] serde_json::Error),
+    /// An error while waiting for the command to finish
+    #[error("waiting for a command task failed")]
     Join(#[from] JoinError),
 }
 
 /// One or more preprocessors were not configured correctly
 #[derive(Error, Debug)]
-pub struct MultipleDownloadError {
-    errors: Vec<DownloadError>,
+pub struct MultipleCommandError {
+    errors: Vec<CommandError>,
 }
 
-impl MultipleDownloadError {
+impl MultipleCommandError {
     /// Creates a new error
-    pub fn new(errors: Vec<DownloadError>) -> Self {
+    pub fn new(errors: Vec<CommandError>) -> Self {
         Self { errors }
     }
 }
 
-impl fmt::Display for MultipleDownloadError {
+impl fmt::Display for MultipleCommandError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use fmt::Write;
 
         let mut w = f.hanging_indent("  ");
-        write!(w, "at least one download failed:")?;
+        write!(w, "at least one command failed:")?;
         for error in &self.errors {
             writeln!(w)?;
             write!(w, "{}", error.error_chain())?;
@@ -98,7 +98,7 @@ pub enum ExecutionError {
     Query(#[from] query::Error),
     /// An error during downloading a resource from the web
     #[error(transparent)]
-    Download(#[from] MultipleDownloadError),
+    Command(#[from] MultipleCommandError),
 }
 
 /// A result with a config error in it

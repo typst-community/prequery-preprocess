@@ -77,14 +77,15 @@ impl<W: World> Shell<W> {
         Ok(data)
     }
 
-    async fn run_command(self: Arc<Self>, input: serde_json::Value) -> Result<(), DownloadError> {
+    async fn run_command(self: Arc<Self>, input: serde_json::Value) -> Result<(), CommandError> {
         let mut l = self.world.main().log();
 
         let name = self.name();
+        let input = serde_json::to_string(&input)?;
 
         log!(
             l,
-            "[{name}] TODO run command {:?} on {:?}",
+            "[{name}] TODO run command {:?} on {}",
             self.manifest.command,
             input
         );
@@ -121,7 +122,7 @@ impl<W: World> Shell<W> {
         }
 
         if !errors.is_empty() {
-            return Err(error::MultipleDownloadError::new(errors).into());
+            return Err(error::MultipleCommandError::new(errors).into());
         }
 
         Ok::<_, ExecutionError>(())
