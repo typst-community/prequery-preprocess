@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
+use super::IndexError;
 use super::index::Index;
-use super::{DownloadError, IndexError};
 
 /// The context for executing a Shell job. Defines how downloading and saving files work, and thus
 /// allows mocking.
@@ -27,11 +27,11 @@ pub trait World: Send + Sync + 'static {
     /// Writes the shell index to its location.
     async fn write_index(&self, index: &Index) -> Result<(), IndexError>;
 
-    /// Checks whether a resource at the given path exists.
-    async fn resource_exists(&self, location: &Path) -> bool;
+    // /// Runs a shell command.
+    // async fn run_command(&self, location: &Path, url: &str) -> Result<(), DownloadError>;
 
-    /// Performs the download of a URL's contents to a file.
-    async fn download(&self, location: &Path, url: &str) -> Result<(), DownloadError>;
+    // /// Writes a command's result to a file.
+    // async fn write_output(&self, location: &Path, url: &str) -> Result<(), DownloadError>;
 }
 
 /// The default context, accessing the real web and filesystem.
@@ -73,23 +73,6 @@ impl World for DefaultWorld {
 
     async fn write_index(&self, index: &Index) -> Result<(), IndexError> {
         index.write().await?;
-        Ok(())
-    }
-
-    async fn resource_exists(&self, location: &Path) -> bool {
-        fs::try_exists(location).await.unwrap_or(false)
-    }
-
-    async fn download(&self, location: &Path, url: &str) -> Result<(), DownloadError> {
-        if let Some(parent) = location.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-        let mut response = reqwest::get(url).await?.error_for_status()?;
-        let mut file = fs::File::create(&location).await?;
-        while let Some(chunk) = response.chunk().await? {
-            file.write_all(&chunk).await?;
-        }
-        file.flush().await?;
         Ok(())
     }
 }

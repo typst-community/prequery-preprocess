@@ -1,7 +1,5 @@
 //! The `shell` preprocessor
 
-use std::fmt;
-use std::io;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -44,70 +42,6 @@ pub struct Shell<W: World> {
     query: Query,
 }
 
-/// The state of the file: if and how the existing file corresponds to the desired web resource.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ResourceState {
-    /// No local file exists.
-    Missing,
-    /// A re-download is forced despite the file existing.
-    Forced,
-    /// The file seems to be up-to-date: the URL hasn't changed, or no index is kept.
-    Existing,
-    /// The file seems is not up-to-date: the URL has changed according to the index.
-    ChangedResource,
-}
-
-impl ResourceState {
-    pub fn download(self) -> bool {
-        match self {
-            Self::Missing | Self::Forced | Self::ChangedResource => true,
-            Self::Existing => false,
-        }
-    }
-
-    pub fn reason(self) -> Option<&'static str> {
-        match self {
-            Self::Missing => None,
-            Self::Forced => Some("overwrite of existing files was forced"),
-            Self::ChangedResource => Some("URL has changed"),
-            Self::Existing => Some("file exists"),
-        }
-    }
-
-    pub fn on<'a>(self, url: &'a str, path: &'a str) -> ResourceAction<'a> {
-        ResourceAction {
-            state: self,
-            url,
-            path,
-        }
-    }
-}
-
-struct ResourceAction<'a> {
-    state: ResourceState,
-    url: &'a str,
-    path: &'a str,
-}
-
-impl fmt::Display for ResourceAction<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.state.download() {
-            write!(f, "Downloading to {}: {}", self.path, self.url)?;
-            if let Some(reason) = self.state.reason() {
-                write!(f, " ({})", reason)?;
-            }
-            write!(f, "...")?;
-        } else {
-            write!(f, "Downloading to {} skipped: {}", self.path, self.url)?;
-            if let Some(reason) = self.state.reason() {
-                write!(f, " ({})", reason)?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
 impl<W: World> Shell<W> {
     pub(crate) fn new(
         world: Arc<W>,
@@ -143,58 +77,17 @@ impl<W: World> Shell<W> {
         Ok(data)
     }
 
-    async fn download(self: Arc<Self>, resource: Resource) -> Result<(), DownloadError> {
+    async fn run_command(self: Arc<Self>, input: serde_json::Value) -> Result<(), DownloadError> {
         let mut l = self.world.main().log();
 
         let name = self.name();
-        let Resource { url, path } = &resource;
 
-        let path_str = path.to_string_lossy();
-        let resolved_path = self
-            .world
-            .main()
-            .resolve(path)
-            .ok_or_else(|| {
-                let msg = format!("{path_str} is outside the project root");
-                io::Error::new(io::ErrorKind::PermissionDenied, msg)
-            })
-            .inspect_err(|error| {
-                log!(l, "[{name}] Can't download to {path_str}: {error}");
-            })?;
-        let path_str = resolved_path.to_string_lossy();
-
-        let exists = self.world.resource_exists(&resolved_path).await;
-        let state = if !exists {
-            ResourceState::Missing
-        } else if self.manifest.overwrite {
-            ResourceState::Forced
-        } else if let Some(index) = &self.index {
-            let index = index.lock().await;
-            if index.is_up_to_date(path, url) {
-                ResourceState::Existing
-            } else {
-                ResourceState::ChangedResource
-            }
-        } else {
-            ResourceState::Existing
-        };
-
-        log!(l, "[{name}] {}", state.on(url, &path_str));
-
-        if state.download() {
-            self.world
-                .download(&resolved_path, url)
-                .await
-                .inspect_err(|error| {
-                    log!(l, "[{name}] Downloading to {path_str} failed: {error}");
-                })?;
-
-            if let Some(index) = &self.index {
-                let mut index = index.lock().await;
-                index.update(resource.clone());
-            }
-            log!(l, "[{name}] Downloading to {path_str} finished");
-        }
+        log!(
+            l,
+            "[{name}] TODO run command {:?} on {:?}",
+            self.manifest.command,
+            input
+        );
 
         Ok(())
     }
@@ -205,13 +98,22 @@ impl<W: World> Shell<W> {
             .populate_index()
             .await?;
 
-        let downloads = self
-            .query()
-            .await?
-            .resources
+        let query_data = self.query().await?;
+        let inputs = query_data
+            .items
             .into_iter()
-            .map(|(path, url)| Arc::clone(self).download(Resource { path, url }));
-        let errors = utils::spawn_set(downloads).await;
+            .filter_map(InputItem::into_data);
+
+        let errors = if self.manifest.joined {
+            // combine all inputs and process in one swoop
+            let input = inputs.collect::<Vec<_>>().into();
+            let result = Arc::clone(self).run_command(input).await;
+            result.err().into_iter().collect()
+        } else {
+            // execute individual commands per input
+            let commands = inputs.map(|input| Arc::clone(self).run_command(input));
+            utils::spawn_set(commands).await
+        };
 
         if let Some(index) = &self.index {
             let index = index.lock().await;
