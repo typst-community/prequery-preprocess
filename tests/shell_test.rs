@@ -1,6 +1,6 @@
 // use std::path::PathBuf;
 
-// use mockall::predicate::{always, eq};
+use mockall::predicate::eq;
 use prequery_preprocess::query::Query;
 use prequery_preprocess::shell::{MockWorld, MockWorld_NewContext, ShellFactory};
 use serial_test::serial;
@@ -80,10 +80,20 @@ async fn run_shell_python_snippets() {
             world.expect_write_index().never();
 
             // two code snippets
-            // world.expect_run_command()
-            //     .times(2)
-            //     .with(always())  // TODO
-            //     .returning(|_| Ok(()));
+            world.expect_run_command()
+                .once()
+                .with(
+                    eq(["python".to_string()]),
+                    eq(*br#""print(\"Hello World\")""#),
+                )
+                .returning(|_, _| Ok(br#""Hello World\n""#.to_vec()));
+            world.expect_run_command()
+                .once()
+                .with(
+                    eq(["python".to_string()]),
+                    eq(*br#""print(\"Hello Prequery\")""#),
+                )
+                .returning(|_, _| Ok(br#""Hello Prequery\n""#.to_vec()));
 
             // one combined output file
             // world
@@ -137,10 +147,14 @@ async fn run_shell_python_joined_snippets() {
             world.expect_write_index().never();
 
             // two code snippets
-            // world.expect_run_command()
-            //     .once()
-            //     .with(always())  // TODO
-            //     .returning(|_| Ok(()));
+            world
+                .expect_run_command()
+                .once()
+                .with(
+                    eq(["python".to_string(), "exec.py".to_string()]),
+                    eq(*br#"["x = 1\nprint(x)","y = x + 1\nprint(y)"]"#),
+                )
+                .returning(|_, _| Ok(br#"["1\n","2\n"]"#.to_vec()));
 
             // one combined output file
             // world

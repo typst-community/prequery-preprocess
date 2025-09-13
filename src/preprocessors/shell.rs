@@ -8,7 +8,6 @@ use tokio::sync::Mutex;
 
 use crate::preprocessor::{DynError, Preprocessor};
 use crate::query::{self, Query};
-use crate::utils;
 use crate::world::{World as _, WorldExt as _};
 
 mod error;
@@ -77,20 +76,27 @@ impl<W: World> Shell<W> {
         Ok(data)
     }
 
-    async fn run_command(self: Arc<Self>, input: serde_json::Value) -> Result<(), CommandError> {
+    async fn run_command(
+        self: Arc<Self>,
+        input: serde_json::Value,
+    ) -> Result<serde_json::Value, CommandError> {
         let mut l = self.world.main().log();
 
         let name = self.name();
-        let input = serde_json::to_string(&input)?;
+        let command = &self.manifest.command;
+        let input = serde_json::to_vec(&input)?;
 
         log!(
             l,
-            "[{name}] TODO run command {:?} on {}",
-            self.manifest.command,
-            input
+            "[{name}] run command {:?} on {}",
+            command,
+            String::from_utf8_lossy(&input),
         );
 
-        Ok(())
+        let output = self.world.run_command(command, &input).await?;
+        let output = serde_json::from_slice(&output)?;
+
+        Ok(output)
     }
 
     async fn run_impl(self: &mut Arc<Self>) -> ExecutionResult<()> {
@@ -113,7 +119,8 @@ impl<W: World> Shell<W> {
         } else {
             // execute individual commands per input
             let commands = inputs.map(|input| Arc::clone(self).run_command(input));
-            utils::spawn_set(commands).await
+            // utils::spawn_set(commands).await
+            todo!() as Vec<_>
         };
 
         if let Some(index) = &self.index {

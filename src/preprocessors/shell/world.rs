@@ -1,12 +1,15 @@
+use std::ffi::OsStr;
 use std::path::Path;
+use std::process::Stdio;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::process;
 
-use super::IndexError;
 use super::index::Index;
+use super::{CommandError, IndexError};
 
 /// The context for executing a Shell job. Defines how downloading and saving files work, and thus
 /// allows mocking.
@@ -27,8 +30,10 @@ pub trait World: Send + Sync + 'static {
     /// Writes the shell index to its location.
     async fn write_index(&self, index: &Index) -> Result<(), IndexError>;
 
-    // /// Runs a shell command.
-    // async fn run_command(&self, location: &Path, url: &str) -> Result<(), DownloadError>;
+    /// Runs a shell command.
+    async fn run_command<S>(&self, command: &[S], input: &[u8]) -> Result<Vec<u8>, CommandError>
+    where
+        S: AsRef<OsStr> + std::fmt::Debug + Send + Sync + 'static;
 
     // /// Writes a command's result to a file.
     // async fn write_output(&self, location: &Path, url: &str) -> Result<(), DownloadError>;
@@ -74,5 +79,34 @@ impl World for DefaultWorld {
     async fn write_index(&self, index: &Index) -> Result<(), IndexError> {
         index.write().await?;
         Ok(())
+    }
+
+    async fn run_command<S>(&self, command: &[S], input: &[u8]) -> Result<Vec<u8>, CommandError>
+    where
+        S: AsRef<OsStr> + Send + Sync,
+    {
+        let mut child = process::Command::new(&command[0])
+            .args(&command[1..])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?;
+
+        let mut stdin = child
+            .stdin
+            .take()
+            .expect("child did not have a handle to stdin");
+        stdin.write_all(input).await?;
+        stdin.shutdown().await?;
+        drop(stdin);
+
+        let stdout = child
+            .stdout
+            .take()
+            .expect("child did not have a handle to stdout");
+        let mut stdout = BufReader::new(stdout);
+        let mut output = Vec::new();
+        stdout.read_to_end(&mut output).await?;
+
+        Ok(output)
     }
 }
