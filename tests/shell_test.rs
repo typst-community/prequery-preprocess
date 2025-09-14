@@ -46,8 +46,7 @@ impl ShellTest {
     }
 }
 
-/// Run the shell preprocessor without any resources and no index.
-/// No downloads should happen, and no index should be saved.
+/// Run the shell preprocessor with two separate commands, saved to one file.
 #[tokio::test]
 #[serial(shell)]
 async fn run_shell_python_snippets() {
@@ -112,8 +111,78 @@ async fn run_shell_python_snippets() {
     .expect_log(include_str!("shell/python.txt"));
 }
 
-/// Run the shell preprocessor without any resources and no index.
-/// No downloads should happen, and no index should be saved.
+/// Run the shell preprocessor with two separate commands, saved to separate files.
+#[tokio::test]
+#[serial(shell)]
+async fn run_shell_python_snippets_separate_files() {
+    ShellTest::new(
+        &["prequery-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "python"
+        kind = "shell"
+
+        query.selector = "<python>"
+
+        command = "python"
+        "#,
+        Query {
+            selector: "<python>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"path": "out1.json", "data": "print(\"Hello World\")"}, {"path": "out2.json", "data": "print(\"Hello Prequery\")"}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            // two code snippets
+            world.expect_run_command()
+                .once()
+                .with(
+                    eq(["python".to_string()]),
+                    eq(*br#""print(\"Hello World\")""#),
+                )
+                .returning(|_, _| Ok(br#""Hello World\n""#.to_vec()));
+            world.expect_run_command()
+                .once()
+                .with(
+                    eq(["python".to_string()]),
+                    eq(*br#""print(\"Hello Prequery\")""#),
+                )
+                .returning(|_, _| Ok(br#""Hello Prequery\n""#.to_vec()));
+
+            // separate output files
+            world
+                .expect_write_output()
+                .with(
+                    eq(PathBuf::from("out1.json")),
+                    eq(*br#""Hello World\n""#),
+                )
+                .returning(|_, _| Ok(()));
+            world
+                .expect_write_output()
+                .with(
+                    eq(PathBuf::from("out2.json")),
+                    eq(*br#""Hello Prequery\n""#),
+                )
+                .returning(|_, _| Ok(()));
+        },
+    )
+    .run()
+    .await
+    .expect_ok("shell job should succeed")
+    .expect_log(include_str!("shell/python.txt"));
+}
+
+/// Run the shell preprocessor with two joined commands, saved to one file.
 #[tokio::test]
 #[serial(shell)]
 async fn run_shell_python_joined_snippets() {
@@ -161,6 +230,72 @@ async fn run_shell_python_joined_snippets() {
                 .expect_write_output()
                 .once()
                 .with(eq(PathBuf::from("out.json")), eq(*br#"["1\n","2\n"]"#))
+                .returning(|_, _| Ok(()));
+        },
+    )
+    .run()
+    .await
+    .expect_ok("shell job should succeed")
+    .expect_log(include_str!("shell/joined-python.txt"));
+}
+
+/// Run the shell preprocessor with two joined commands, saved to separate files.
+#[tokio::test]
+#[serial(shell)]
+async fn run_shell_python_joined_snippets_separate_files() {
+    ShellTest::new(
+        &["prequery-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "python"
+        kind = "shell"
+
+        query.selector = "<python>"
+
+        command = ["python", "exec.py"]
+        joined = true
+        "#,
+        Query {
+            selector: "<python>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"path": "out1.json", "data": "x = 1\nprint(x)"}, {"path": "out2.json", "data": "y = x + 1\nprint(y)"}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            // two code snippets
+            world
+                .expect_run_command()
+                .once()
+                .with(
+                    eq(["python".to_string(), "exec.py".to_string()]),
+                    eq(*br#"["x = 1\nprint(x)","y = x + 1\nprint(y)"]"#),
+                )
+                .returning(|_, _| Ok(br#"["1\n","2\n"]"#.to_vec()));
+
+            // separate output files
+            world
+                .expect_write_output()
+                .with(
+                    eq(PathBuf::from("out1.json")),
+                    eq(*br#""1\n""#),
+                )
+                .returning(|_, _| Ok(()));
+            world
+                .expect_write_output()
+                .with(
+                    eq(PathBuf::from("out2.json")),
+                    eq(*br#""2\n""#),
+                )
                 .returning(|_, _| Ok(()));
         },
     )
