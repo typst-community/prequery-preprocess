@@ -105,7 +105,7 @@ impl<W: World> Shell<W> {
         self: Arc<Self>,
         location: PathBuf,
         output: serde_json::Value,
-    ) -> Result<(), CommandError> {
+    ) -> Result<(), FileError> {
         let output = serde_json::to_vec(&output)?;
         self.world.write_output(&location, &output).await?;
         Ok(())
@@ -128,7 +128,7 @@ impl<W: World> Shell<W> {
 
             // output must be an array as long as the input
             if !matches!(&output, serde_json::Value::Array(outputs) if outputs.len() == length) {
-                return Err(todo!());
+                return Err(CommandError::Array.into());
             }
 
             output
@@ -171,7 +171,7 @@ impl<W: World> Shell<W> {
                 let results = futures::future::join_all(writes).await;
                 let errors: Vec<_> = results.into_iter().filter_map(Result::err).collect();
                 if !errors.is_empty() {
-                    return Err(error::MultipleCommandError::new(errors).into());
+                    return Err(error::MultipleFileError::new(errors).into());
                 }
             }
         }

@@ -9,7 +9,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process;
 
 use super::index::Index;
-use super::{CommandError, IndexError};
+use super::{CommandError, FileError, IndexError};
 
 /// The context for executing a Shell job. Defines how downloading and saving files work, and thus
 /// allows mocking.
@@ -36,7 +36,7 @@ pub trait World: Send + Sync + 'static {
         S: AsRef<OsStr> + std::fmt::Debug + Send + Sync + 'static;
 
     /// Writes a command's result to a file.
-    async fn write_output(&self, location: &Path, output: &[u8]) -> Result<(), CommandError>;
+    async fn write_output(&self, location: &Path, output: &[u8]) -> Result<(), FileError>;
 }
 
 /// The default context, accessing the real web and filesystem.
@@ -110,7 +110,7 @@ impl World for DefaultWorld {
         Ok(output)
     }
 
-    async fn write_output(&self, location: &Path, output: &[u8]) -> Result<(), CommandError> {
+    async fn write_output(&self, location: &Path, output: &[u8]) -> Result<(), FileError> {
         if let Some(parent) = location.parent() {
             fs::create_dir_all(parent).await?;
         }
