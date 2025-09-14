@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::fs;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::AsyncWriteExt;
 use tokio::process;
 
 use super::index::Index;
@@ -99,13 +99,11 @@ impl World for DefaultWorld {
         stdin.shutdown().await?;
         drop(stdin);
 
-        let stdout = child
-            .stdout
-            .take()
-            .expect("child did not have a handle to stdout");
-        let mut stdout = BufReader::new(stdout);
-        let mut output = Vec::new();
-        stdout.read_to_end(&mut output).await?;
+        let output = child.wait_with_output().await?;
+        if !output.status.success() {
+            return Err(CommandError::ExitStatus(output.status));
+        }
+        let output = output.stdout;
 
         Ok(output)
     }

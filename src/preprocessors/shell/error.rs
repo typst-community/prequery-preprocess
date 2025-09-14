@@ -1,5 +1,6 @@
 use std::fmt;
 use std::io;
+use std::process;
 
 use thiserror::Error;
 use tokio::task::JoinError;
@@ -52,6 +53,9 @@ pub enum CommandError {
     /// An error running or communication with a child process
     #[error(transparent)]
     Process(#[from] io::Error),
+    /// An unsuccessful child exit code
+    #[error("the command failed: {0}")]
+    ExitStatus(process::ExitStatus),
     /// The command input or output was not valid
     #[error("command input or output was not valid JSON or did not fit the expected format")]
     Json(#[from] serde_json::Error),
