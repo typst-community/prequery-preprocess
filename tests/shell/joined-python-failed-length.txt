@@ -1,0 +1,7 @@
+[python] beginning job...
+[python] executing command "python exec.py" with 1 joined inputs...
+[python] job failed: at least one command failed:
+  the command did not return an array of the correct length
+at least one job's execution failed:
+  [python] at least one command failed:
+      the command did not return an array of the correct length

@@ -1,3 +1,4 @@
+use std::io;
 use std::path::PathBuf;
 
 use mockall::predicate::eq;
@@ -303,4 +304,152 @@ async fn run_shell_python_joined_snippets_separate_files() {
     .await
     .expect_ok("shell job should succeed")
     .expect_log(include_str!("shell/joined-python-separate.txt"));
+}
+
+/// Run the shell preprocessor, but the command fails.
+#[tokio::test]
+#[serial(shell)]
+async fn run_shell_python_failed_process() {
+    ShellTest::new(
+        &["prequery-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "python"
+        kind = "shell"
+
+        query.selector = "<python>"
+
+        command = ["python"]
+        "#,
+        Query {
+            selector: "<python>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"path": "out.json", "data": ""}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            // one command, fails
+            world
+                .expect_run_command()
+                .once()
+                .with(eq(["python".to_string()]), eq(*br#""""#))
+                .returning(|_, _| {
+                    Err(prequery_preprocess::shell::CommandError::Process(
+                        io::ErrorKind::Other.into(),
+                    ))
+                });
+
+            world.expect_write_output().never();
+        },
+    )
+    .run()
+    .await
+    .expect_err("shell job should fail")
+    .expect_log(include_str!("shell/python-failed-process.txt"));
+}
+
+/// Run the shell preprocessor with one command, but the command doesn't return JSON.
+#[tokio::test]
+#[serial(shell)]
+async fn run_shell_python_invalid_output() {
+    ShellTest::new(
+        &["prequery-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "python"
+        kind = "shell"
+
+        query.selector = "<python>"
+
+        command = "python"
+        "#,
+        Query {
+            selector: "<python>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"path": "out.json", "data": ""}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            // one code snippet
+            world
+                .expect_run_command()
+                .once()
+                .with(eq(["python".to_string()]), eq(*br#""""#))
+                .returning(|_, _| Ok(br#"not JSON"#.to_vec()));
+        },
+    )
+    .run()
+    .await
+    .expect_err("shell job should fail")
+    .expect_log(include_str!("shell/python-failed-invalid-output.txt"));
+}
+
+/// Run the shell preprocessor, but the command for the joined inputs returns an array of the wrong length.
+#[tokio::test]
+#[serial(shell)]
+async fn run_shell_python_joined_wrong_length() {
+    ShellTest::new(
+        &["prequery-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "python"
+        kind = "shell"
+
+        query.selector = "<python>"
+
+        command = ["python", "exec.py"]
+        joined = true
+        "#,
+        Query {
+            selector: "<python>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"path": "out.json"}, {"data": ""}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            // one code snippet, returns as if there were two
+            world
+                .expect_run_command()
+                .once()
+                .with(
+                    eq(["python".to_string(), "exec.py".to_string()]),
+                    eq(*br#"[""]"#),
+                )
+                .returning(|_, _| Ok(br#"["",""]"#.to_vec()));
+        },
+    )
+    .run()
+    .await
+    .expect_err("shell job should fail")
+    .expect_log(include_str!("shell/joined-python-failed-length.txt"));
 }

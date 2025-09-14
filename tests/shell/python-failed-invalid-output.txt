@@ -1,0 +1,9 @@
+[python] beginning job...
+[python] executing command "python" for 1 inputs...
+[python] job failed: at least one command failed:
+  command input or output was not valid JSON or did not fit the expected format
+  expected ident at line 1 column 2
+at least one job's execution failed:
+  [python] at least one command failed:
+      command input or output was not valid JSON or did not fit the expected format
+      expected ident at line 1 column 2
