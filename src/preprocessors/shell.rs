@@ -156,8 +156,7 @@ impl<W: World> Shell<W> {
                 return Err(error::MultipleCommandError::new(errors).into());
             }
 
-            let output = outputs.into();
-            output
+            outputs.into()
         };
 
         match outputs {

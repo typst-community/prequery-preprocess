@@ -82,7 +82,7 @@ impl fmt::Display for Command {
         if let Some(s) = iter.next() {
             write!(f, "{s}")?;
         }
-        while let Some(s) = iter.next() {
+        for s in iter {
             write!(f, " {s}")?;
         }
         Ok(())
