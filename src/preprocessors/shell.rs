@@ -106,19 +106,21 @@ impl<W: World> Shell<W> {
             .await?;
 
         let query_data = self.query().await?;
-        let inputs = query_data
-            .items
-            .into_iter()
-            .filter_map(InputItem::into_data);
+        let inputs = match query_data {
+            QueryData::SharedOutput { inputs, .. } => inputs,
+            QueryData::IndividualOutput(_) => todo!(),
+        };
 
         let errors = if self.manifest.joined {
             // combine all inputs and process in one swoop
-            let input = inputs.collect::<Vec<_>>().into();
+            let input = inputs.into();
             let result = Arc::clone(self).run_command(input).await;
             result.err().into_iter().collect()
         } else {
             // execute individual commands per input
-            let commands = inputs.map(|input| Arc::clone(self).run_command(input));
+            let commands = inputs
+                .into_iter()
+                .map(|input| Arc::clone(self).run_command(input));
             // utils::spawn_set(commands).await
             todo!() as Vec<_>
         };
