@@ -82,20 +82,10 @@ impl<W: World> Shell<W> {
         self: Arc<Self>,
         input: serde_json::Value,
     ) -> Result<serde_json::Value, CommandError> {
-        let mut l = self.world.main().log();
-
-        let name = self.name();
         let command = &self.manifest.command;
         let input = serde_json::to_vec(&input)?;
 
-        log!(
-            l,
-            "[{name}] run command {:?} on {}",
-            command,
-            String::from_utf8_lossy(&input),
-        );
-
-        let output = self.world.run_command(command, &input).await?;
+        let output = self.world.run_command(&command.0, &input).await?;
         let output = serde_json::from_slice(&output)?;
 
         Ok(output)
@@ -117,10 +107,20 @@ impl<W: World> Shell<W> {
             .populate_index()
             .await?;
 
+        let mut l = self.world.main().log();
+        let name = self.name();
+
         let query_data = self.query().await?;
         let (outputs, inputs) = query_data.split();
         let output = if self.manifest.joined {
             // run one command
+            log!(
+                l,
+                "[{name}] executing command \"{}\" with {} joined inputs...",
+                self.manifest.command,
+                inputs.len(),
+            );
+
             let length = inputs.len();
 
             let input = inputs.into();
@@ -134,6 +134,13 @@ impl<W: World> Shell<W> {
             output
         } else {
             // run many commands
+            log!(
+                l,
+                "[{name}] executing command \"{}\" for {} inputs...",
+                self.manifest.command,
+                inputs.len(),
+            );
+
             let commands = inputs
                 .into_iter()
                 .map(|input| Arc::clone(self).run_command(input));
@@ -156,11 +163,19 @@ impl<W: World> Shell<W> {
         match outputs {
             Output::SharedOutput(path) => {
                 // save to one file
+                log!(
+                    l,
+                    "[{name}] execution finished, saving to {}...",
+                    path.display(),
+                );
+
                 let output = serde_json::to_vec(&output).map_err(CommandError::from)?;
                 self.world.write_output(&path, &output).await?;
             }
             Output::IndividualOutput(paths) => {
                 // save to many files
+                log!(l, "[{name}] execution finished, saving...",);
+
                 let serde_json::Value::Array(outputs) = output else {
                     unreachable!("output is an array, previously checked");
                 };
@@ -175,6 +190,8 @@ impl<W: World> Shell<W> {
                 }
             }
         }
+
+        log!(l, "[{name}] command results saved",);
 
         if let Some(index) = &self.index {
             let index = index.lock().await;

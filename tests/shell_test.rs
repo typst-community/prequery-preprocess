@@ -179,7 +179,7 @@ async fn run_shell_python_snippets_separate_files() {
     .run()
     .await
     .expect_ok("shell job should succeed")
-    .expect_log(include_str!("shell/python.txt"));
+    .expect_log(include_str!("shell/python-separate.txt"));
 }
 
 /// Run the shell preprocessor with two joined commands, saved to one file.
@@ -302,5 +302,5 @@ async fn run_shell_python_joined_snippets_separate_files() {
     .run()
     .await
     .expect_ok("shell job should succeed")
-    .expect_log(include_str!("shell/joined-python.txt"));
+    .expect_log(include_str!("shell/joined-python-separate.txt"));
 }

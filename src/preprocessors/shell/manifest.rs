@@ -8,8 +8,7 @@ use serde::{Deserialize, Deserializer};
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
     /// command and arguments to run with this shell preprocessor job
-    #[serde(deserialize_with = "deserialize_command")]
-    pub command: Vec<String>,
+    pub command: Command,
 
     /// Whether each input should be process by its own command invocation, or all inputs should be
     /// joined and processed by a single command invocation.
@@ -26,49 +25,6 @@ pub struct Manifest {
     /// index file, this will lead to problems!
     #[serde(default, deserialize_with = "deserialize_index")]
     pub index: Option<PathBuf>,
-}
-
-/// Deserializes the `command` config: must be either a string or vector of strings.
-fn deserialize_command<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct CommandVisitor;
-
-    impl<'de> Visitor<'de> for CommandVisitor {
-        type Value = Vec<String>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a string or array of strings")
-        }
-
-        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            self.visit_string(v.to_owned())
-        }
-
-        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            Ok(vec![v])
-        }
-
-        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-        where
-            A: de::SeqAccess<'de>,
-        {
-            let mut result = Vec::new();
-            while let Some(value) = seq.next_element()? {
-                result.push(value);
-            }
-            Ok(result)
-        }
-    }
-
-    deserializer.deserialize_any(CommandVisitor)
 }
 
 /// Deserializes the `index` config: if given, must be either a boolean or string.
@@ -115,4 +71,64 @@ where
     }
 
     deserializer.deserialize_any(IndexVisitor)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Command(pub Vec<String>);
+
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut iter = self.0.iter();
+        if let Some(s) = iter.next() {
+            write!(f, "{s}")?;
+        }
+        while let Some(s) = iter.next() {
+            write!(f, " {s}")?;
+        }
+        Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for Command {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct CommandVisitor;
+
+        impl<'de> Visitor<'de> for CommandVisitor {
+            type Value = Command;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string or array of strings")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                self.visit_string(v.to_owned())
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(Command(vec![v]))
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::SeqAccess<'de>,
+            {
+                let mut result = Vec::new();
+                while let Some(value) = seq.next_element()? {
+                    result.push(value);
+                }
+                Ok(Command(result))
+            }
+        }
+
+        deserializer.deserialize_any(CommandVisitor)
+    }
 }
