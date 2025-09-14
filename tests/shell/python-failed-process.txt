@@ -1,0 +1,7 @@
+[python] beginning job...
+[python] executing command "python" for 1 inputs...
+[python] job failed: at least one command failed:
+  other error
+at least one job's execution failed:
+  [python] at least one command failed:
+      other error
