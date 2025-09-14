@@ -19,6 +19,26 @@ pub enum QueryData {
     IndividualOutput(Vec<InputItem>),
 }
 
+pub enum Output {
+    SharedOutput(PathBuf),
+    IndividualOutput(Vec<PathBuf>),
+}
+
+impl QueryData {
+    pub fn split(self) -> (Output, Vec<serde_json::Value>) {
+        match self {
+            QueryData::SharedOutput { path, inputs } => (Output::SharedOutput(path), inputs),
+            QueryData::IndividualOutput(input_items) => {
+                let (outputs, inputs) = input_items
+                    .into_iter()
+                    .map(|item| (item.path, item.data))
+                    .unzip();
+                (Output::IndividualOutput(outputs), inputs)
+            }
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for QueryData {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

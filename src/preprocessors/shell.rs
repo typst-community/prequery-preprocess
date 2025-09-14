@@ -106,10 +106,7 @@ impl<W: World> Shell<W> {
             .await?;
 
         let query_data = self.query().await?;
-        let inputs = match query_data {
-            QueryData::SharedOutput { inputs, .. } => inputs,
-            QueryData::IndividualOutput(_) => todo!(),
-        };
+        let (_outputs, inputs) = query_data.split();
 
         let errors = if self.manifest.joined {
             // combine all inputs and process in one swoop
