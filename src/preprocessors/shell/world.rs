@@ -35,8 +35,8 @@ pub trait World: Send + Sync + 'static {
     where
         S: AsRef<OsStr> + std::fmt::Debug + Send + Sync + 'static;
 
-    // /// Writes a command's result to a file.
-    // async fn write_output(&self, location: &Path, url: &str) -> Result<(), DownloadError>;
+    /// Writes a command's result to a file.
+    async fn write_output(&self, location: &Path, output: &[u8]) -> Result<(), CommandError>;
 }
 
 /// The default context, accessing the real web and filesystem.
@@ -108,5 +108,15 @@ impl World for DefaultWorld {
         stdout.read_to_end(&mut output).await?;
 
         Ok(output)
+    }
+
+    async fn write_output(&self, location: &Path, output: &[u8]) -> Result<(), CommandError> {
+        if let Some(parent) = location.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+        let mut file = fs::File::create(&location).await?;
+        file.write_all(output).await?;
+        file.flush().await?;
+        Ok(())
     }
 }

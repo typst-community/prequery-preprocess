@@ -1,4 +1,4 @@
-// use std::path::PathBuf;
+use std::path::PathBuf;
 
 use mockall::predicate::eq;
 use prequery_preprocess::query::Query;
@@ -96,14 +96,14 @@ async fn run_shell_python_snippets() {
                 .returning(|_, _| Ok(br#""Hello Prequery\n""#.to_vec()));
 
             // one combined output file
-            // world
-            //     .expect_write_output()
-            //     .once()
-            //     .with(
-            //         eq(PathBuf::from("out.json")),
-            //         eq(r#"["Hello World\n", "Hello Prequery\n"]"#),
-            //     )
-            //     .returning(|_, _| Ok(()));
+            world
+                .expect_write_output()
+                .once()
+                .with(
+                    eq(PathBuf::from("out.json")),
+                    eq(*br#"["Hello World\n","Hello Prequery\n"]"#),
+                )
+                .returning(|_, _| Ok(()));
         },
     )
     .run()
@@ -157,14 +157,11 @@ async fn run_shell_python_joined_snippets() {
                 .returning(|_, _| Ok(br#"["1\n","2\n"]"#.to_vec()));
 
             // one combined output file
-            // world
-            //     .expect_write_output()
-            //     .once()
-            //     .with(
-            //         eq(PathBuf::from("out.json")),
-            //         eq(r#"["1\n", "2\n"]"#),
-            //     )
-            //     .returning(|_, _| Ok(()));
+            world
+                .expect_write_output()
+                .once()
+                .with(eq(PathBuf::from("out.json")), eq(*br#"["1\n","2\n"]"#))
+                .returning(|_, _| Ok(()));
         },
     )
     .run()

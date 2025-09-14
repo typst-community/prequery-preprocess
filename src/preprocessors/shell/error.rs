@@ -101,6 +101,12 @@ pub enum ExecutionError {
     Command(#[from] MultipleCommandError),
 }
 
+impl From<CommandError> for ExecutionError {
+    fn from(value: CommandError) -> Self {
+        MultipleCommandError::new(vec![value]).into()
+    }
+}
+
 /// A result with a config error in it
 pub type ManifestResult<T> = Result<T, ManifestError>;
 

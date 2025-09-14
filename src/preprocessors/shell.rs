@@ -1,9 +1,11 @@
 //! The `shell` preprocessor
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use derive_more::Debug;
+use itertools::{Either, Itertools};
 use tokio::sync::Mutex;
 
 use crate::preprocessor::{DynError, Preprocessor};
@@ -99,6 +101,16 @@ impl<W: World> Shell<W> {
         Ok(output)
     }
 
+    async fn write_output(
+        self: Arc<Self>,
+        location: PathBuf,
+        output: serde_json::Value,
+    ) -> Result<(), CommandError> {
+        let output = serde_json::to_vec(&output)?;
+        self.world.write_output(&location, &output).await?;
+        Ok(())
+    }
+
     async fn run_impl(self: &mut Arc<Self>) -> ExecutionResult<()> {
         Arc::get_mut(self)
             .expect("shell ref count should be one before starting the processing")
@@ -106,29 +118,67 @@ impl<W: World> Shell<W> {
             .await?;
 
         let query_data = self.query().await?;
-        let (_outputs, inputs) = query_data.split();
+        let (outputs, inputs) = query_data.split();
+        let output = if self.manifest.joined {
+            // run one command
+            let length = inputs.len();
 
-        let errors = if self.manifest.joined {
-            // combine all inputs and process in one swoop
             let input = inputs.into();
-            let result = Arc::clone(self).run_command(input).await;
-            result.err().into_iter().collect()
+            let output = Arc::clone(self).run_command(input).await?;
+
+            // output must be an array as long as the input
+            if !matches!(&output, serde_json::Value::Array(outputs) if outputs.len() == length) {
+                return Err(todo!());
+            }
+
+            output
         } else {
-            // execute individual commands per input
+            // run many commands
             let commands = inputs
                 .into_iter()
                 .map(|input| Arc::clone(self).run_command(input));
-            // utils::spawn_set(commands).await
-            todo!() as Vec<_>
+            let results = futures::future::join_all(commands).await;
+
+            // collect
+            let (outputs, errors): (Vec<_>, Vec<_>) =
+                results.into_iter().partition_map(|result| match result {
+                    Ok(output) => Either::Left(output),
+                    Err(error) => Either::Right(error),
+                });
+            if !errors.is_empty() {
+                return Err(error::MultipleCommandError::new(errors).into());
+            }
+
+            let output = outputs.into();
+            output
         };
+
+        match outputs {
+            Output::SharedOutput(path) => {
+                // save to one file
+                let output = serde_json::to_vec(&output).map_err(CommandError::from)?;
+                self.world.write_output(&path, &output).await?;
+            }
+            Output::IndividualOutput(paths) => {
+                // save to many files
+                let serde_json::Value::Array(outputs) = output else {
+                    unreachable!("output is an array, previously checked");
+                };
+                let writes = paths
+                    .into_iter()
+                    .zip(outputs)
+                    .map(|(path, output)| Arc::clone(self).write_output(path, output));
+                let results = futures::future::join_all(writes).await;
+                let errors: Vec<_> = results.into_iter().filter_map(Result::err).collect();
+                if !errors.is_empty() {
+                    return Err(error::MultipleCommandError::new(errors).into());
+                }
+            }
+        }
 
         if let Some(index) = &self.index {
             let index = index.lock().await;
             self.world.write_index(&index).await?;
-        }
-
-        if !errors.is_empty() {
-            return Err(error::MultipleCommandError::new(errors).into());
         }
 
         Ok::<_, ExecutionError>(())
