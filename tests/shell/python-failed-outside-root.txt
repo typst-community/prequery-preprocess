@@ -1,0 +1,7 @@
+[python] beginning job...
+[python] executing command "python" for 2 inputs...
+[python] job failed: at least one command failed:
+  ../out.json is outside the project root
+at least one job's execution failed:
+  [python] at least one command failed:
+      ../out.json is outside the project root
