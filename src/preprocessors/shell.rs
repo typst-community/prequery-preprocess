@@ -84,10 +84,24 @@ impl<W: World> Shell<W> {
         input: serde_json::Value,
     ) -> Result<serde_json::Value, CommandError> {
         let command = &self.manifest.command;
-        let input = serde_json::to_vec(&input)?;
+        let input = match self.manifest.format.stdin {
+            Format::Plain => {
+                let serde_json::Value::String(input) = input else {
+                    unreachable!("inputs were already checked to be strings");
+                };
+                input.into_bytes()
+            }
+            Format::Json => serde_json::to_vec(&input)?,
+        };
 
         let output = self.world.run_command(&command.0, &input).await?;
-        let output = serde_json::from_slice(&output)?;
+        let output = match self.manifest.format.stdout {
+            Format::Plain => {
+                let output = String::from_utf8(output).map_err(|_| CommandError::NonStringPlain)?;
+                serde_json::Value::String(output)
+            }
+            Format::Json => serde_json::from_slice(&output)?,
+        };
 
         Ok(output)
     }
@@ -97,7 +111,15 @@ impl<W: World> Shell<W> {
         location: PathBuf,
         output: serde_json::Value,
     ) -> Result<(), FileError> {
-        let output = serde_json::to_vec(&output)?;
+        let output = match self.manifest.format.output {
+            Format::Plain => {
+                let serde_json::Value::String(output) = output else {
+                    unreachable!("outputs were already checked to be strings");
+                };
+                output.into_bytes()
+            }
+            Format::Json => serde_json::to_vec(&output)?,
+        };
         self.world.write_output(&location, &output).await?;
         Ok(())
     }
@@ -113,6 +135,22 @@ impl<W: World> Shell<W> {
 
         let query_data = self.query().await?;
         let (outputs, inputs) = query_data.split();
+
+        if self.manifest.format.stdin == Format::Plain {
+            // (we already know that we're not processing a joined query; that's ensured by the factory)
+            // all inputs must be strings
+            for input in &inputs {
+                if !input.is_string() {
+                    return Err(CommandError::NonStringPlain.into());
+                }
+            }
+        }
+        if self.manifest.format.output == Format::Plain {
+            // results must be saved to individual files
+            if matches!(outputs, Output::SharedOutput(_)) {
+                return Err(ExecutionError::PlainWithSharedOutput);
+            }
+        }
 
         let outputs = match outputs {
             Output::SharedOutput(path) => {

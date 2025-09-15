@@ -67,6 +67,11 @@ pub enum CommandError {
     /// The command input or output was not valid
     #[error("the command did not return an array of the correct length")]
     Array,
+    /// The command input or output was not valid plain text data
+    /// (in the case of command output, this can happen if the data is not valid UTF8, or if the
+    /// array of joined outputs contained non-text data)
+    #[error("the command got or returned non-string data")]
+    NonStringPlain,
     /// An error while waiting for the command to finish
     #[error("waiting for a command task failed")]
     Join(#[from] JoinError),
@@ -138,6 +143,9 @@ pub enum ExecutionError {
     /// An error while executing the job's query
     #[error(transparent)]
     Query(#[from] query::Error),
+    /// The stdin/stdout format for joined commands was set to plain
+    #[error("the plain data format can't be used to save data to a shared output file")]
+    PlainWithSharedOutput,
     /// An error while executing a shell command
     #[error(transparent)]
     Command(#[from] MultipleCommandError),
