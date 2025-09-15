@@ -1,5 +1,6 @@
 //! The `shell` preprocessor
 
+use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -112,6 +113,52 @@ impl<W: World> Shell<W> {
 
         let query_data = self.query().await?;
         let (outputs, inputs) = query_data.split();
+
+        let outputs = match outputs {
+            Output::SharedOutput(path) => {
+                let path_str = path.to_string_lossy();
+                let path = self
+                    .world
+                    .main()
+                    .resolve(&path)
+                    .ok_or_else(|| {
+                        let msg = format!("{path_str} is outside the project root");
+                        io::Error::new(io::ErrorKind::PermissionDenied, msg)
+                    })
+                    .inspect_err(|error| {
+                        log!(
+                            l,
+                            "[{name}] Can't store command results in {path_str}: {error}"
+                        );
+                    })?;
+                Output::SharedOutput(path)
+            }
+            Output::IndividualOutput(paths) => {
+                let paths = paths
+                    .into_iter()
+                    .map(|path| {
+                        let path_str = path.to_string_lossy();
+                        let path = self
+                            .world
+                            .main()
+                            .resolve(&path)
+                            .ok_or_else(|| {
+                                let msg = format!("{path_str} is outside the project root");
+                                io::Error::new(io::ErrorKind::PermissionDenied, msg)
+                            })
+                            .inspect_err(|error| {
+                                log!(
+                                    l,
+                                    "[{name}] Can't store command results in {path_str}: {error}"
+                                );
+                            })?;
+                        Ok::<_, io::Error>(path)
+                    })
+                    .try_collect()?;
+                Output::IndividualOutput(paths)
+            }
+        };
+
         let output = if self.manifest.joined {
             // run one command
             log!(
