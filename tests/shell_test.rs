@@ -506,3 +506,52 @@ async fn run_shell_python_output_outside_root() {
     .expect_err("shell job should fail")
     .expect_log(include_str!("shell/python-failed-outside-root.txt"));
 }
+
+/// Run the shell preprocessor with two separate commands, saved to one file.
+#[tokio::test]
+#[serial(shell)]
+async fn run_shell_python_joined_plain_text_input() {
+    ShellTest::new(
+        &["prequery-preprocess", "input.typ"],
+        r#"
+        [package]
+        name = "test"
+        version = "0.0.1"
+        entrypoint = "main.typ"
+
+        [[tool.prequery.jobs]]
+        name = "python"
+        kind = "shell"
+
+        query.selector = "<python>"
+
+        command = ["python", "exec.py"]
+        joined = true
+        format.stdin = "plain"
+        "#,
+        Query {
+            selector: "<python>".to_string(),
+            field: Some("value".to_string()),
+            one: false,
+            inputs: Default::default(),
+        },
+        br#"[{"path": "out.json"}, {"data": "x = 1\nprint(x)"}, {"data": "y = x + 1\nprint(y)"}]"#,
+        |world| {
+            // no index specified in the manifest
+            world.expect_read_index().never();
+            world.expect_write_index().never();
+
+            // two code snippets
+            world.expect_run_command::<String>().never();
+
+            // one combined output file
+            world.expect_write_output().never();
+        },
+    )
+    .run()
+    .await
+    .expect_err("shell job should fail")
+    .expect_log(include_str!(
+        "shell/python-failed-joined-plain-text-input.txt"
+    ));
+}
