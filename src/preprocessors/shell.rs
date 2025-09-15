@@ -174,11 +174,10 @@ impl<W: World> Shell<W> {
             let output = Arc::clone(self).run_command(input).await?;
 
             // output must be an array as long as the input
-            if !matches!(&output, serde_json::Value::Array(outputs) if outputs.len() == length) {
-                return Err(CommandError::Array.into());
+            match output {
+                serde_json::Value::Array(outputs) if outputs.len() == length => outputs,
+                _ => return Err(CommandError::Array.into()),
             }
-
-            output
         } else {
             // run many commands
             log!(
@@ -203,7 +202,7 @@ impl<W: World> Shell<W> {
                 return Err(error::MultipleCommandError::new(errors).into());
             }
 
-            outputs.into()
+            outputs
         };
 
         match outputs {
@@ -215,6 +214,7 @@ impl<W: World> Shell<W> {
                     path.display(),
                 );
 
+                let output = serde_json::Value::Array(output);
                 let output = serde_json::to_vec(&output).map_err(CommandError::from)?;
                 self.world.write_output(&path, &output).await?;
             }
@@ -222,12 +222,9 @@ impl<W: World> Shell<W> {
                 // save to many files
                 log!(l, "[{name}] execution finished, saving...",);
 
-                let serde_json::Value::Array(outputs) = output else {
-                    unreachable!("output is an array, previously checked");
-                };
                 let writes = paths
                     .into_iter()
-                    .zip(outputs)
+                    .zip(output)
                     .map(|(path, output)| Arc::clone(self).write_output(path, output));
                 let results = futures::future::join_all(writes).await;
                 let errors: Vec<_> = results.into_iter().filter_map(Result::err).collect();
