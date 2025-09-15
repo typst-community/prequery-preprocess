@@ -48,6 +48,7 @@ impl ShellTest {
 }
 
 /// Run the shell preprocessor with two separate commands, saved to one file.
+/// Data is returned from the commands as plain text
 #[tokio::test]
 #[serial(shell)]
 async fn run_shell_python_snippets() {
@@ -66,6 +67,7 @@ async fn run_shell_python_snippets() {
         query.selector = "<python>"
 
         command = "python"
+        format.stdout = "plain"
         "#,
         Query {
             selector: "<python>".to_string(),
@@ -86,14 +88,14 @@ async fn run_shell_python_snippets() {
                     eq(["python".to_string()]),
                     eq(*br#""print(\"Hello World\")""#),
                 )
-                .returning(|_, _| Ok(br#""Hello World\n""#.to_vec()));
+                .returning(|_, _| Ok(b"Hello World\n".to_vec()));
             world.expect_run_command()
                 .once()
                 .with(
                     eq(["python".to_string()]),
                     eq(*br#""print(\"Hello Prequery\")""#),
                 )
-                .returning(|_, _| Ok(br#""Hello Prequery\n""#.to_vec()));
+                .returning(|_, _| Ok(b"Hello Prequery\n".to_vec()));
 
             // one combined output file
             world
@@ -113,6 +115,7 @@ async fn run_shell_python_snippets() {
 }
 
 /// Run the shell preprocessor with two separate commands, saved to separate files.
+/// All data is passed as plain text
 #[tokio::test]
 #[serial(shell)]
 async fn run_shell_python_snippets_separate_files() {
@@ -131,6 +134,9 @@ async fn run_shell_python_snippets_separate_files() {
         query.selector = "<python>"
 
         command = "python"
+        format.stdin = "plain"
+        format.stdout = "plain"
+        format.output = "plain"
         "#,
         Query {
             selector: "<python>".to_string(),
@@ -149,30 +155,30 @@ async fn run_shell_python_snippets_separate_files() {
                 .once()
                 .with(
                     eq(["python".to_string()]),
-                    eq(*br#""print(\"Hello World\")""#),
+                    eq(*br#"print("Hello World")"#),
                 )
-                .returning(|_, _| Ok(br#""Hello World\n""#.to_vec()));
+                .returning(|_, _| Ok(br#"Hello World\n"#.to_vec()));
             world.expect_run_command()
                 .once()
                 .with(
                     eq(["python".to_string()]),
-                    eq(*br#""print(\"Hello Prequery\")""#),
+                    eq(*br#"print("Hello Prequery")"#),
                 )
-                .returning(|_, _| Ok(br#""Hello Prequery\n""#.to_vec()));
+                .returning(|_, _| Ok(br#"Hello Prequery\n"#.to_vec()));
 
             // separate output files
             world
                 .expect_write_output()
                 .with(
                     eq(PathBuf::from("out1.json")),
-                    eq(*br#""Hello World\n""#),
+                    eq(*br#"Hello World\n"#),
                 )
                 .returning(|_, _| Ok(()));
             world
                 .expect_write_output()
                 .with(
                     eq(PathBuf::from("out2.json")),
-                    eq(*br#""Hello Prequery\n""#),
+                    eq(*br#"Hello Prequery\n"#),
                 )
                 .returning(|_, _| Ok(()));
         },
@@ -241,6 +247,7 @@ async fn run_shell_python_joined_snippets() {
 }
 
 /// Run the shell preprocessor with two joined commands, saved to separate files.
+/// Files are saved as plain text
 #[tokio::test]
 #[serial(shell)]
 async fn run_shell_python_joined_snippets_separate_files() {
@@ -260,6 +267,7 @@ async fn run_shell_python_joined_snippets_separate_files() {
 
         command = ["python", "exec.py"]
         joined = true
+        format.output = "plain"
         "#,
         Query {
             selector: "<python>".to_string(),
@@ -288,14 +296,14 @@ async fn run_shell_python_joined_snippets_separate_files() {
                 .expect_write_output()
                 .with(
                     eq(PathBuf::from("out1.json")),
-                    eq(*br#""1\n""#),
+                    eq(*b"1\n"),
                 )
                 .returning(|_, _| Ok(()));
             world
                 .expect_write_output()
                 .with(
                     eq(PathBuf::from("out2.json")),
-                    eq(*br#""2\n""#),
+                    eq(*b"2\n"),
                 )
                 .returning(|_, _| Ok(()));
         },
