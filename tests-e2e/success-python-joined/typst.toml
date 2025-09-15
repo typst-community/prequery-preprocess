@@ -9,6 +9,6 @@ kind = "shell"
 
 query.selector = "<python>"
 
-command = ["python", "success-python-joined/exec.py"]
+command = ["python", "exec.py"]
 joined = true
 format.output = "plain"
