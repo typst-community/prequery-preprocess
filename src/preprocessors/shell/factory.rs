@@ -7,7 +7,7 @@ use crate::preprocessor::{BoxedPreprocessor, PreprocessorDefinition};
 use crate::query::Query;
 
 use super::world::{DefaultWorld, World};
-use super::{Manifest, ManifestError, ManifestResult, QueryConfigError, Shell};
+use super::{Format, Manifest, ManifestError, ManifestResult, QueryConfigError, Shell};
 
 /// The `shell` preprocessor factory
 #[derive(Debug, Clone, Copy)]
@@ -28,7 +28,12 @@ impl<W: World> ShellFactory<W> {
     }
 
     fn parse_config(config: toml::Table) -> ManifestResult<Manifest> {
-        let config = config.try_into()?;
+        let config: Manifest = config.try_into()?;
+        if config.joined
+            && (config.format.stdin == Format::Plain || config.format.stdout == Format::Plain)
+        {
+            return Err(ManifestError::PlainWithJoined);
+        }
         Ok(config)
     }
 

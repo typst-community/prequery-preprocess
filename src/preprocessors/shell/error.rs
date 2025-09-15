@@ -25,6 +25,11 @@ pub enum ManifestError {
     /// The provided configuration is not valid for a shell job
     #[error("invalid shell configuration")]
     Manifest(#[from] toml::de::Error),
+    /// The stdin/stdout format for joined commands was set to plain
+    #[error(
+        "the plain data format can't be used to input to/output from commands processing joined inputs"
+    )]
+    PlainWithJoined,
     /// An error in the configuration of the job's query
     #[error(transparent)]
     Query(#[from] QueryConfigError),
