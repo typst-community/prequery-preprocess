@@ -27,6 +27,9 @@ pub struct Manifest {
     pub index: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Command(pub Vec<String>);
+
 /// Deserializes the `index` config: if given, must be either a boolean or string.
 fn deserialize_index<'de, D>(deserializer: D) -> Result<Option<PathBuf>, D::Error>
 where
@@ -72,9 +75,6 @@ where
 
     deserializer.deserialize_any(IndexVisitor)
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Command(pub Vec<String>);
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
