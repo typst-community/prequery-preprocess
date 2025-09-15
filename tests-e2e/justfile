@@ -26,6 +26,14 @@ test:
     # download to outside root should fail
     just run-test failure-outside-root "outside the project root" "1"
 
+    # running shell command with plain text input and output should work
+    @ rm -rf success-python-plain/assets/
+    just run-test success-python-plain
+
+    # running shell command with plain text input and output should work
+    @ rm -rf success-python-joined/assets/
+    just run-test success-python-joined
+
 # runs prequeries on the specified test case; fails if that command fails, or if PATTERN is given,
 # if the pattern does not appear in the prequery output. If EXIT_CODE is given (and not zero),
 # that exit code is expected instead of 0 (success). When both PATTERN and EXIT_CODE are given,
