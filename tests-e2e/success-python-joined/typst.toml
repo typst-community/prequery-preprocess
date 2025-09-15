@@ -1,0 +1,14 @@
+[package]
+name = "experiment"
+version = "0.0.1"
+entrypoint = "main.typ"
+
+[[tool.prequery.jobs]]
+name = "python"
+kind = "shell"
+
+query.selector = "<python>"
+
+command = ["python", "exec.py"]
+joined = true
+format.output = "plain"

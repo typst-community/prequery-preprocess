@@ -85,8 +85,17 @@ impl World for DefaultWorld {
     where
         S: AsRef<OsStr> + Send + Sync,
     {
+        let mut root = self.main().resolve_typst_toml().await?;
+        // remove the file name
+        let result = root.pop();
+        assert!(
+            result,
+            "the path should have had a final component of `typst.toml`"
+        );
+
         let mut child = process::Command::new(&command[0])
             .args(&command[1..])
+            .current_dir(root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()?;

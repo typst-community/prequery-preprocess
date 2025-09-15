@@ -1,0 +1,4 @@
+at least one job's configuration failed:
+  [python] invalid job config
+    the job of kind `shell` was configured incorrectly
+    the plain data format can't be used to input to/output from commands processing joined inputs

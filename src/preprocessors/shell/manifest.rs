@@ -20,11 +20,44 @@ pub struct Manifest {
     #[serde(default)]
     pub concurrent: bool,
 
+    /// The data formats for sending data in various directions. Typst queries are always
+    /// represented as JSON, but command stdin, stdout and the file format to be read by Typst can
+    /// be configured.
+    ///
+    /// Not all options are always available: [Format::Plain] requires the data to be UTF8 text,
+    /// which implies that it can't be used with [joined][Manifest::joined] inputs for stdin or
+    /// stdout. Likewise, it can't be used for [output][Formats::output] if
+    /// [SharedOutput][super::Output::SharedOutput] is used, since that must also save an array of
+    /// data.
+    #[serde(default)]
+    pub format: Formats,
+
     /// Change this to true or a file path given as a string to enable the index. If true, the
     /// default path is "shell-index.toml"; note that if multiple shell jobs are using the same
     /// index file, this will lead to problems!
     #[serde(default, deserialize_with = "deserialize_index")]
     pub index: Option<PathBuf>,
+}
+
+#[derive(Deserialize, Default, Debug, Clone, PartialEq, Eq)]
+pub struct Formats {
+    #[serde(default)]
+    pub stdin: Format,
+    #[serde(default)]
+    pub stdout: Format,
+    #[serde(default)]
+    pub output: Format,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Command(pub Vec<String>);
+
+#[derive(Deserialize, Default, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Format {
+    Plain,
+    #[default]
+    Json,
 }
 
 /// Deserializes the `index` config: if given, must be either a boolean or string.
@@ -72,9 +105,6 @@ where
 
     deserializer.deserialize_any(IndexVisitor)
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Command(pub Vec<String>);
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
