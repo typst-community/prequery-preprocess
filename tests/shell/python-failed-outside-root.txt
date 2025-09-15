@@ -1,0 +1,7 @@
+[python] beginning job...
+[python] Can't store command results in ../out.json: ../out.json is outside the project root
+[python] job failed: at least one result could not be written:
+  ../out.json is outside the project root
+at least one job's execution failed:
+  [python] at least one result could not be written:
+      ../out.json is outside the project root
