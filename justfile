@@ -4,7 +4,7 @@ default:
 
 test:
     cargo test
-    cd tests && just
+    cd tests-e2e && just
 
 test-assets:
     cd test-assets && just

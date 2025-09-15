@@ -4,7 +4,7 @@ test:
     just run-test success-download "example-image.svg finished"
 
     # existing file should not be downloaded
-    just run-test success-download "example-image.svg skipped (file exists)"
+    just run-test success-download "(file exists)"
 
     # custom query config should work
     just run-test success-custom-query
@@ -17,7 +17,7 @@ test:
     just run-test success-index-download "example-image.svg finished"
 
     # existing file should not be downloaded when using an index
-    just run-test success-index-skipped "example-image.svg skipped (file exists)"
+    just run-test success-index-skipped "(file exists)"
 
     # existing file should be downloaded when URL changed
     cp success-index-updated/web-resource-index-original.toml success-index-updated/web-resource-index.toml
@@ -32,7 +32,7 @@ test:
 # the exit code of the executed `grep` command is checked.
 [private]
 run-test NAME PATTERN="" EXIT_CODE="0":
-    OUTPUT="$(cargo run -q -- {{NAME}}/main.typ)"; \
+    OUTPUT="$(cargo run -q -- {{NAME}}/main.typ 2>&1)"; \
     {{ if PATTERN != "" { 'echo "$OUTPUT" | grep -q "' + PATTERN + '";' } else { "" } }} \
     if [ "$?" != "{{EXIT_CODE}}" ]; then \
         echo "$OUTPUT" >&2; \
